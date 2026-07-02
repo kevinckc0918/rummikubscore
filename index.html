@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>專業 Rummikub 計分器 V1.3</title>
+    <title>專業 Rummikub 計分器 V1.4</title>
     
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#1a237e">
@@ -37,6 +37,7 @@
             user-select: none;
         }
 
+        /* 🟢 頂欄完全自適應 Grid 修復，100% 解決文字重疊 */
         header {
             background-color: var(--primary-dark);
             color: white;
@@ -45,24 +46,67 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
         .header-content {
-            display: flex; justify-content: space-between; align-items: center;
-            height: 100%; padding: 0 15px; position: relative;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            height: 100%;
+            padding: 0 10px;
+            gap: 6px;
         }
         .header-title { 
-            font-weight: bold; font-size: 1.15em; position: absolute; left: 50%;
-            transform: translateX(-50%); white-space: nowrap; display: flex; align-items: center; gap: 5px;
+            font-weight: bold; 
+            font-size: 1.05em; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            gap: 4px;
+            white-space: nowrap;
+            min-width: 0;
+            overflow: hidden;
+            text-align: center;
         }
         .online-badge {
-            background: #e8eaf6; color: var(--primary-dark); font-size: 0.7em; padding: 2px 6px; border-radius: 10px; display: none;
+            background: #e8eaf6; 
+            color: var(--primary-dark); 
+            font-size: 0.75em; 
+            padding: 2px 6px; 
+            border-radius: 10px; 
+            display: none;
+            white-space: nowrap;
         }
         .btn-header {
-            border: none; padding: 7px 12px; border-radius: 20px; 
-            font-weight: bold; font-size: 0.9em; cursor: pointer; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 2;
+            border: none; 
+            padding: 6px 10px; 
+            border-radius: 20px; 
+            font-weight: bold; 
+            font-size: 0.85em; 
+            cursor: pointer; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            white-space: nowrap;
+            z-index: 2;
         }
         .btn-header:active { transform: scale(0.95); }
         .btn-zhui-header { background: #ffe0b2; color: #000; }
         .btn-end-header { background: #e53935; color: white; }
+
+        /* 針對窄版手機進行自動微縮 */
+        @media (max-width: 365px) {
+            .header-content {
+                padding: 0 6px;
+                gap: 4px;
+            }
+            .btn-header {
+                padding: 5px 8px;
+                font-size: 0.8em;
+            }
+            .header-title {
+                font-size: 0.95em;
+            }
+            .online-badge {
+                font-size: 0.7em;
+                padding: 1px 4px;
+            }
+        }
 
         .container { padding: 6px; max-width: 600px; margin: auto; }
         .view { display: none; }
@@ -220,7 +264,8 @@
 
 <header>
     <div class="header-content">
-        <button class="btn-header btn-zhui-header" onclick="openZhuiModal()">😰 罰分/微調</button>
+        <!-- 😰 按鈕文字優化：將「😰 罰分/微調」精簡為「😰 罰分」，預留極多水平寬度 -->
+        <button class="btn-header btn-zhui-header" onclick="openZhuiModal()">😰 罰分</button>
         <div class="header-title">
             Rummikub 計分
             <span id="headerRoomBadge" class="online-badge">🟢 12345</span>
@@ -234,7 +279,7 @@
         <!-- 看板模式切換工具條 -->
         <div style="display:flex; justify-content:center; margin: 4px 0 8px 0;">
             <button id="scoreModeToggleBtn" onclick="toggleScoreMode()" style="background: #1565c0; color: white; border: none; padding: 8px 20px; border-radius: 20px; font-weight: bold; font-size: 0.95em; box-shadow: 0 2px 5px rgba(0,0,0,0.15); cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
-                🖥️ 切換至「純分數看板」
+                🖥️ 一鍵切換「純分數看板」
             </button>
         </div>
 
@@ -316,7 +361,7 @@
             <button id="leaveRoomBtn" onclick="leaveRoom()" style="display:none; width:100%; margin-top:10px; background: #e0e0e0; color: #333; border:none; padding:10px; border-radius:8px; cursor: pointer; font-weight:bold;">🚪 離開房間 (轉回單機)</button>
         </div>
 
-        <!-- 🔑 新增：手動粘貼 Firebase 設定 (防呆備用連線) -->
+        <!-- 🔑 手動粘貼 Firebase 設定 (防呆備用連線) -->
         <div class="online-zone" style="background: #efebe9; border-color: #d7ccc8;">
             <h4 style="color: #4e342e; margin-top:0; margin-bottom:5px; font-size: 1.1em;">🌐 備用方案：手動粘貼金鑰連線</h4>
             <p style="font-size:0.8em; color:#5d4037; margin-top:0;">若伺服器環境變數載入失敗，可將您的 Firebase Config JSON 直接粘貼在下方：</p>
@@ -480,7 +525,7 @@
     // 看板模式與設定初始化
     let scoreMode = localStorage.getItem('rmk_score_mode') === 'true';
 
-    const emojiList = ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🐒','🦍','🦧','🐔','🐧','🐦','🐤','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🐛','🦋','🐌','🐞','🐜','🦟','🦗','🐢','🐍','🦎','🦖','🦕','🐙','🦑','蝦','蟹','🐠','🐳','🐊','🦓','🐘','🦒','🐕','🐈','🐇'];
+    const emojiList = ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🐒','🦍','🦧','🐔','🐧','🐦','🐤','🦆',' eagles','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🐛','🦋','🐌','🐞','🐜','🦟','🦗','🐢','🐍','🦎','🦖','🦕','🐙','🦑','蝦','蟹','🐠','🐳','🐊','🦓','🐘','🦒','🐕','🐈','🐇'];
 
     let players = JSON.parse(localStorage.getItem('rmk_players')) || [
         { id: 0, name: "玩家 1", score: 0, wind: "1號位", emoji: "🐶", stats: { win: 0, jokers: 0, nomeld: 0, games: 0 } },
@@ -554,14 +599,13 @@
         
         if(viewName === 'sessions') renderSessions();
         if(viewName === 'history') renderHistory();
-        if(viewName === 'calculator') renderCalculatorTargets(); // 切換到計算機分頁時重新渲染玩家目標
+        if(viewName === 'calculator') renderCalculatorTargets(); 
     }
 
     // ----------------------------
     // Firebase 實時對接 (完全兼容跑馬仔 V9.3 路徑規則)
     // ----------------------------
     function getRoomRef(roomId) {
-        // 遵守 RULE 1 路徑隔離
         return db.doc('artifacts/' + appId + '/public/data/rooms/' + roomId);
     }
 
@@ -790,7 +834,6 @@
         document.getElementById('set-noMeldRule').value = config.noMeldRule || 'none';
         document.getElementById('set-voice').checked = config.voiceEnabled;
 
-        // 讀取手動金鑰框
         const manualSaved = localStorage.getItem('rmk_manual_firebase_config') || '';
         document.getElementById('manualFirebaseInput').value = manualSaved;
     }
@@ -969,6 +1012,7 @@
         calculatePreview();
     }
 
+    // 同步勾選狀態
     function toggleMeldTag(pid) {
         const btn = document.getElementById(`meld-btn-${pid}`);
         btn.classList.toggle('active');
@@ -1055,7 +1099,7 @@
     }
 
     // ----------------------------
-    // 🧮 專用覆蓋型計算機核心邏輯
+    // 🧮 專用覆蓋型計算機核心邏輯 (為結算彈窗中的每位玩家獨立計算)
     // ----------------------------
     function openCalcForPlayer(pid) {
         activeCalcPlayerId = pid;
@@ -1240,7 +1284,6 @@
         i.value=v; d.innerText=v; 
     }
 
-    // 🔑 新增：手動儲存 Firebase 備用連線金鑰
     function saveManualFirebaseConfig() {
         const inputVal = document.getElementById('manualFirebaseInput').value.trim();
         if(!inputVal) {
@@ -1251,7 +1294,6 @@
         }
 
         try {
-            // 語法校驗
             JSON.parse(inputVal);
             localStorage.setItem('rmk_manual_firebase_config', inputVal);
             alert("🎉 金鑰保存成功！系統將自動嘗試以此設定連線。網頁將立即重啟...");
@@ -1330,7 +1372,6 @@
         
         setTimeout(loadVoices, 500); 
 
-        // 1. 優先嘗試讀取手動粘貼在本地的 config 金鑰 (最保險、專治 Coolify/Static 連線難題)
         const manualConfigString = localStorage.getItem('rmk_manual_firebase_config');
         if (manualConfigString) {
             try {
@@ -1341,7 +1382,6 @@
             }
         }
 
-        // 2. 其次嘗試讀取預設系統/Canvas預覽環境變數
         if (!firebaseConfig && typeof __firebase_config !== 'undefined') {
             try {
                 firebaseConfig = JSON.parse(__firebase_config);
@@ -1350,7 +1390,6 @@
             }
         }
 
-        // 3. 最後嘗試拉取本地檔案 (對應 Coolify 解決方案 1 的自動建置命令)
         if (!firebaseConfig) {
             try {
                 const response = await fetch('./firebase-config.json');
@@ -1363,14 +1402,12 @@
             }
         }
 
-        // 4. 🟢 連線至 Firebase
         if (firebaseSupported && firebaseConfig && firebaseConfig.projectId && firebaseConfig.apiKey) {
             try {
                 firebase.initializeApp(firebaseConfig);
                 auth = firebase.auth();
                 db = firebase.firestore();
 
-                // 完美遵守 RULE 3：先登錄後監聽
                 const initAuth = async () => {
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         await auth.signInWithCustomToken(__initial_auth_token);
@@ -1400,7 +1437,6 @@
         updateRoomUI();
     }
 
-    // 將行內 onclick 呼叫的函數綁定至 window
     window.showView = showView;
     window.createRoom = createRoom;
     window.joinRoomBtn = joinRoomBtn;
@@ -1433,7 +1469,6 @@
     window.saveSettings = saveSettings;
     window.confirmEndSession = confirmEndSession;
 
-    // 計算機 & 手動設定函數
     window.openCalcForPlayer = openCalcForPlayer;
     window.pressModalCalcNum = pressModalCalcNum;
     window.pressModalCalcOp = pressModalCalcOp;
