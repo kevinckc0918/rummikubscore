@@ -1,0 +1,17 @@
+{
+  "name": "跑馬仔計分板",
+  "short_name": "跑馬仔",
+  "description": "麻雀跑馬仔計分專用 App",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#2E7D32",
+  "theme_color": "#2E7D32",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

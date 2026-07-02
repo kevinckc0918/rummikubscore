@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>專業 Rummikub 計分器 V1.0</title>
+    
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#1a237e">
+    <link rel="apple-touch-icon" href="./icon.png">
+
+    <style>
+        :root {
+            --primary: #1565c0;
+            --primary-dark: #1a237e;
+            --accent: #ffd54f;
+            --bg: #f5f5f5;
+            --text: #333;
+            --win: #2e7d32;
+            --lose: #d32f2f;
+            --warning: #f57c00;
+            --joker: #e65100;
+            --whatsapp: #25D366;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding-bottom: 85px;
+            user-select: none;
+        }
+
+        header {
+            background-color: var(--primary-dark);
+            color: white;
+            height: 54px;
+            position: sticky; top: 0; z-index: 100;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .header-content {
+            display: flex; justify-content: space-between; align-items: center;
+            height: 100%; padding: 0 15px; position: relative;
+        }
+        .header-title { 
+            font-weight: bold; font-size: 1.15em; position: absolute; left: 50%;
+            transform: translateX(-50%); white-space: nowrap; display: flex; align-items: center; gap: 5px;
+        }
+        .online-badge {
+            background: #e8eaf6; color: var(--primary-dark); font-size: 0.7em; padding: 2px 6px; border-radius: 10px; display: none;
+        }
+        .btn-header {
+            border: none; padding: 7px 12px; border-radius: 20px; 
+            font-weight: bold; font-size: 0.9em; cursor: pointer; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 2;
+        }
+        .btn-header:active { transform: scale(0.95); }
+        .btn-zhui-header { background: #ffe0b2; color: #000; }
+        .btn-end-header { background: #e53935; color: white; }
+
+        .container { padding: 6px; max-width: 600px; margin: auto; }
+        .view { display: none; }
+        .view.active { display: block; }
+
+        /* 縮減行距與卡片邊距 */
+        .cross-layout { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 10px; margin-top: 5px; }
+        .cross-row { display: flex; justify-content: center; gap: 8px; width: 100%; }
+        .card-wrapper { width: 49%; max-width: 240px; }
+
+        .player-card {
+            background: white; border-radius: 12px; padding: 10px; text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-top: 5px solid var(--primary);
+            height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;
+            transition: all 0.3s ease-in-out;
+        }
+
+        .player-name { font-weight: bold; font-size: 1.25em; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; transition: all 0.3s; }
+        .player-role { font-size: 0.75em; color: #666; background: #eee; padding: 1px 6px; border-radius: 8px; display: inline-block; margin-bottom: 4px; }
+        
+        /* 基礎操作模式字體 */
+        .player-score { font-size: 3.2em; font-weight: bold; margin: 4px 0; line-height: 1; transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .score-pos { color: var(--win); }
+        .score-neg { color: var(--lose); }
+        
+        .player-score.score-len-4 { font-size: 2.7em; } 
+        .player-score.score-len-5 { font-size: 2.2em; } 
+
+        .main-actions { display: flex; gap: 8px; margin-top: 10px; transition: all 0.3s; opacity: 1; }
+        .sq-btn {
+            flex: 1; padding: 10px 0; border-radius: 12px; font-size: 1.1em; font-weight: bold;
+            display: flex; align-items: center; justify-content: center; border: none; cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .sq-btn:active { transform: scale(0.95); }
+        .btn-kong { background: #e3f2fd; color: var(--primary); border: 2px solid var(--primary); }
+        .btn-win { background: var(--accent); color: #000; border: 2px solid #fbc02d; }
+        
+        /* 網上連線「純分數看板」專用極限放大 CSS */
+        .score-mode-active .main-actions { display: none !important; }
+        .score-mode-active .player-card { padding: 30px 10px; min-height: 180px; }
+        .score-mode-active .player-name { font-size: 1.6em; color: #111; }
+        
+        .score-mode-active .player-score { margin: 20px 0; font-size: 5.8em; } 
+        .score-mode-active .player-score.score-len-3 { font-size: 5.2em; }     
+        .score-mode-active .player-score.score-len-4 { font-size: 4.4em; }     
+        .score-mode-active .player-score.score-len-5 { font-size: 3.5em; }     
+
+        .small-btn { width: 100%; padding: 6px; font-size: 0.85em; border-radius: 6px; border: none; font-weight: bold; }
+        .btn-danger { background: #ffebee; color: var(--lose); }
+        .btn-wa { background: var(--whatsapp); color: white; }
+
+        .settings-item { background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .setup-card { background: white; border-radius: 12px; padding: 15px 10px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-top: 4px solid var(--primary); }
+        .setup-card .player-label { font-weight: bold; color: var(--primary); font-size: 1.1em; margin-bottom: 8px; }
+        .setup-emoji-display { font-size: 3em; width: 100%; text-align: center; margin-bottom: 10px; cursor: pointer; display: block; user-select: none; }
+        .setup-emoji-display:active { opacity: 0.7; }
+        .setup-name-input { width: 90%; font-size: 1.1em; padding: 8px; text-align: center; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; background: var(--bg); }
+
+        .log-item { background: white; padding: 12px; margin-bottom: 8px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border-left: 4px solid var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .log-desc { font-size: 0.95em; flex: 1; padding-right: 10px; line-height: 1.4; overflow-wrap: break-word; }
+        .undo-btn { background: #ffebee; color: var(--lose); padding: 6px 12px; border-radius: 6px; flex: none; width: auto; font-size: 0.85em; font-weight: bold; white-space: nowrap; border:none; cursor: pointer; }
+        .change-badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; margin-right: 5px; margin-top: 5px; background: #f0f0f0; font-weight: bold; }
+        
+        .session-card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .stats-box { background: #fdfbf7; border: 1px dashed #ccc; border-radius: 8px; padding: 10px; margin-top: 15px; font-size: 0.85em; color: #555; line-height: 1.6; }
+
+        /* Rummikub 選位蓋牌樣式 */
+        .tile-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 20px 0; justify-items: center; }
+        .rummi-tile { 
+            width: 70px; height: 100px; background: #faf8f5; border: 3px solid #e0d0c0; border-radius: 10px; 
+            box-shadow: 2px 4px 6px rgba(0,0,0,0.15); display: flex; flex-direction: column; align-items: center; 
+            justify-content: center; font-size: 2.2em; font-weight: bold; color: transparent; cursor: pointer; 
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative;
+        }
+        .rummi-tile::before {
+            content: "R"; font-size: 1.2em; color: #d32f2f; font-family: 'Arial Black', sans-serif; opacity: 0.85; position: absolute;
+        }
+        .rummi-tile.revealed { 
+            background: #fff; border-color: #ffd54f; cursor: default; transform: rotateY(180deg);
+        }
+        .rummi-tile.revealed::before { display: none; }
+        .rummi-tile-num { font-size: 1.1em; line-height: 1; }
+        .rummi-tile-color-black { color: #111 !important; }
+        .rummi-tile-color-red { color: #d32f2f !important; }
+        .rummi-tile-color-blue { color: #1565c0 !important; }
+        .rummi-tile-color-orange { color: #ff8f00 !important; }
+
+        nav { position: fixed; bottom: 0; width: 100%; background: white; display: flex; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 90; }
+        nav div { flex: 1; text-align: center; padding: 14px 0; font-size: 0.9em; color: #777; cursor: pointer; line-height: 1.4; }
+        nav div.active { color: var(--primary); font-weight: bold; }
+
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 20px 15px; border-radius: 15px; width: 92%; max-width: 440px; box-sizing: border-box; max-height: 92vh; overflow-y: auto; }
+        .modal-content h3 { font-size: 1.4em; margin-top: 0; text-align: center; border-bottom: 2px solid #eee; padding-bottom: 10px;}
+        
+        .emoji-modal-content { padding: 15px 20px 20px 20px; max-width: 360px; height: 60vh; display: flex; flex-direction: column; }
+        .emoji-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .emoji-modal-header h3 { margin: 0; border: none; padding: 0; font-size: 1.3em; text-align: left; }
+        .btn-close-circle { background: #f0f0f0; color: #666; border: none; border-radius: 50%; width: 30px; height: 30px; font-size: 1.2em; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+        .emoji-grid-container { flex: 1; overflow-y: auto; padding-right: 5px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px 8px; align-content: start; }
+        .emoji-item { font-size: 1.8em; text-align: center; cursor: pointer; user-select: none; border-radius: 8px; padding: 5px 0; }
+        .emoji-item:active { background: #eee; transform: scale(0.9); }
+        .emoji-grid-container::-webkit-scrollbar { width: 4px; }
+        .emoji-grid-container::-webkit-scrollbar-thumb { background-color: #ddd; border-radius: 2px; }
+
+        .modal-content .settings-item { font-size: 1.05em; padding: 10px 8px; margin-bottom: 8px; } 
+        .modal-content select { font-size: 1.05em; padding: 8px; border-radius: 8px; width: 140px; border: 1px solid #ddd; background: white; text-align: center;}
+        .modal-content input[type="checkbox"] { width: 25px; height: 25px; } 
+        
+        .modal-content .btn-row { display: flex; justify-content: center; gap: 15px; margin-top: 20px; width: 100%; }
+        .modal-content .btn-row button { flex: 1; max-width: 160px; font-size: 1.1em; padding: 12px; margin: 0; font-weight: bold; border-radius: 10px; border: none; cursor: pointer; }
+
+        .btn-kong-opt { width: 100%; padding: 18px; font-size: 1.3em; background: #f5f5f5; border: 2px solid var(--primary); color: var(--primary); border-radius: 12px; margin-bottom: 12px; font-weight: bold; cursor: pointer; }
+        .btn-kong-opt:active { background: var(--primary); color: white; }
+
+        .stepper { display: flex; align-items: center; gap: 10px; }
+        .stepper button { flex: 0 0 36px; width: 36px; height: 36px; border-radius: 18px; background: var(--primary); color: white; font-size: 1.3em; padding: 0; display: flex; align-items: center; justify-content: center; margin: 0; border: none; cursor:pointer; }
+        .stepper button:active { background: var(--primary-dark); }
+        .stepper span { font-size: 1.3em; font-weight: bold; min-width: 35px; text-align: center; display: inline-block; }
+        
+        textarea { width: 100%; height: 100px; margin-top: 10px; font-family: monospace; font-size: 10px; }
+
+        .danger-zone { background: #fff5f5; border: 1px solid #ffcdd2; padding: 15px; border-radius: 8px; margin-top: 20px; margin-bottom: 30px; }
+        .danger-zone h4 { color: #c62828; margin-top: 0; margin-bottom: 10px; font-size: 1em;}
+        
+        .online-zone { background: #e8eaf6; border: 1px solid #c5cae9; padding: 15px; border-radius: 8px; margin-top: 10px; margin-bottom: 20px; }
+        .online-zone input { width: 100%; font-size: 1.5em; padding: 10px; text-align: center; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 10px; box-sizing: border-box;}
+
+        /* Rummikub 計算機專用 */
+        .calc-panel { background: white; border-radius: 12px; padding: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        .calc-screen { font-size: 2.2em; font-weight: bold; text-align: right; background: #e0f2f1; padding: 10px; border-radius: 8px; margin-bottom: 15px; color: #004d40; border: 1px inset #b2dfdb; }
+        .calc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .calc-btn { padding: 15px 5px; font-size: 1.2em; font-weight: bold; border-radius: 8px; border: none; cursor: pointer; background: #e0e0e0; text-align: center; }
+        .calc-btn:active { opacity: 0.8; transform: scale(0.95); }
+        .calc-btn.op-btn { background: var(--primary); color: white; }
+        .calc-btn.action-btn { background: #ffd54f; color: #333; }
+        .calc-btn.clear-btn { background: #ff8a80; color: white; }
+        .calc-targets { display: flex; flex-direction: column; gap: 8px; margin-top: 15px; background: #fdfbf7; border: 1px dashed #ccc; padding: 10px; border-radius: 8px;}
+
+        /* 結算彈出中的手牌數值輸入列 */
+        .settle-row { display: flex; flex-direction: column; background: #f9f9f9; padding: 10px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid var(--primary); }
+        .settle-row-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .settle-player-info { display: flex; align-items: center; gap: 5px; font-weight: bold; font-size: 1.1em; }
+        .settle-row-actions { display: flex; gap: 8px; align-items: center; }
+        .btn-quick-tag { padding: 4px 8px; font-size: 0.8em; border-radius: 4px; border: 1px solid #ccc; background: white; cursor: pointer; font-weight: bold; }
+        .btn-quick-tag.active { background: var(--joker); color: white; border-color: var(--joker); }
+        .btn-quick-tag.no-meld { background: #9e9e9e; color: white; border-color: #9e9e9e; }
+        .btn-quick-tag.no-meld.active { background: #37474f; border-color: #37474f; }
+        .settle-input { width: 75px; font-size: 1.2em; font-weight: bold; text-align: center; padding: 6px; border-radius: 6px; border: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="header-content">
+        <button class="btn-header btn-zhui-header" onclick="openZhuiModal()">😰 罰分/微調</button>
+        <div class="header-title">
+            Rummikub 計分
+            <span id="headerRoomBadge" class="online-badge">🟢 12345</span>
+        </div>
+        <button class="btn-header btn-end-header" onclick="confirmEndSession()">完場結算</button>
+    </div>
+</header>
+
+<div class="container">
+    <div id="view-game" class="view active">
+        <!-- 看板模式切換工具條 -->
+        <div style="display:flex; justify-content:center; margin: 4px 0 8px 0;">
+            <button id="scoreModeToggleBtn" onclick="toggleScoreMode()" style="background: #1565c0; color: white; border: none; padding: 8px 20px; border-radius: 20px; font-weight: bold; font-size: 0.95em; box-shadow: 0 2px 5px rgba(0,0,0,0.15); cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+                🖥️ 切換至「純分數看板」
+            </button>
+        </div>
+
+        <div class="cross-layout" id="playerGrid"></div>
+    </div>
+
+    <!-- 🧩 抽牌選位與手牌計算器雙視圖 -->
+    <div id="view-shuffle" class="view">
+        <h3 style="text-align: center; margin-bottom: 5px; color: var(--primary-dark);">🎴 Rummikub 抽牌座位決定</h3>
+        <div style="text-align: center; font-size: 0.9em; color:#666; margin-bottom: 10px;">翻開隨機數字牌（1-13），最大者先選位置及當首家</div>
+        <div style="text-align: center; font-size: 1.1em; font-weight: bold; margin: 10px 0; color: var(--primary);" id="shuffleStatus">請按「重新洗牌」開始抽位</div>
+        <div class="tile-grid">
+            <div class="rummi-tile" id="tile-0" onclick="pickTile(0)"></div>
+            <div class="rummi-tile" id="tile-1" onclick="pickTile(1)"></div>
+            <div class="rummi-tile" id="tile-2" onclick="pickTile(2)"></div>
+            <div class="rummi-tile" id="tile-3" onclick="pickTile(3)"></div>
+        </div>
+        <button onclick="startShuffle()" style="background: var(--primary); color: white; width: 100%; padding: 12px; font-size: 1.1em; border:none; border-radius:8px; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.15); cursor:pointer;">♻️ 重新洗牌 / 重新抽位</button>
+    </div>
+
+    <!-- 🧮 內置快捷手牌計算器 -->
+    <div id="view-calculator" class="view">
+        <h3 style="color: var(--primary-dark); margin-bottom: 5px;">🧮 快捷手牌點數累計器</h3>
+        <p style="font-size:0.85em; color:#666; margin-top:0;">點擊數字即可累加剩餘手牌，方便輸家快速計算總罰分，省去心算煩惱！</p>
+        <div class="calc-panel">
+            <div class="calc-screen" id="calcDisplay">0</div>
+            <div class="calc-grid">
+                <button class="calc-btn" onclick="pressCalcNum(1)">1</button>
+                <button class="calc-btn" onclick="pressCalcNum(2)">2</button>
+                <button class="calc-btn" onclick="pressCalcNum(3)">3</button>
+                <button class="calc-btn clear-btn" onclick="clearCalc()">AC</button>
+                
+                <button class="calc-btn" onclick="pressCalcNum(4)">4</button>
+                <button class="calc-btn" onclick="pressCalcNum(5)">5</button>
+                <button class="calc-btn" onclick="pressCalcNum(6)">6</button>
+                <button class="calc-btn op-btn" onclick="pressCalcOp('+10')">+10</button>
+                
+                <button class="calc-btn" onclick="pressCalcNum(7)">7</button>
+                <button class="calc-btn" onclick="pressCalcNum(8)">8</button>
+                <button class="calc-btn" onclick="pressCalcNum(9)">9</button>
+                <button class="calc-btn op-btn" onclick="pressCalcOp('+30')">+30</button>
+                
+                <button class="calc-btn" onclick="pressCalcNum(10)">10</button>
+                <button class="calc-btn" onclick="pressCalcNum(11)">11</button>
+                <button class="calc-btn" onclick="pressCalcNum(12)">12</button>
+                <button class="calc-btn op-btn" onclick="pressCalcNum(13)">13</button>
+            </div>
+            
+            <div class="calc-targets">
+                <span style="font-weight:bold; font-size:0.9em; color:#333;">直接將當前得分傳送到：</span>
+                <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 5px;">
+                    <button class="calc-btn action-btn" style="padding: 10px 0; font-size: 0.9em;" onclick="sendToSettleInput(0)">玩家1</button>
+                    <button class="calc-btn action-btn" style="padding: 10px 0; font-size: 0.9em;" onclick="sendToSettleInput(1)">玩家2</button>
+                    <button class="calc-btn action-btn" style="padding: 10px 0; font-size: 0.9em;" onclick="sendToSettleInput(2)">玩家3</button>
+                    <button class="calc-btn action-btn" style="padding: 10px 0; font-size: 0.9em;" onclick="sendToSettleInput(3)">玩家4</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-history" class="view">
+        <h3>📜 當前局數交易紀錄</h3>
+        <div id="historyLog"></div>
+    </div>
+
+    <div id="view-sessions" class="view">
+        <h3>🏆 歷屆戰績及榮譽榜</h3>
+        <div id="sessionList"></div>
+    </div>
+
+    <div id="view-settings" class="view">
+        <!-- 🌐 網上連線專區 -->
+        <div class="online-zone">
+            <h4 style="color: var(--primary-dark); margin-top: 0; margin-bottom: 5px; font-size: 1.1em;">🌐 網上連線房間 (即時同步)</h4>
+            <p style="font-size:0.85em; color:#555; margin-top:0;">輸入 5 位數字加入房間，多部手機即時同步分數。</p>
+            <input type="tel" id="roomIdInput" placeholder="例如: 12345" maxlength="5">
+            <div style="display:flex; gap: 10px;">
+                <button onclick="createRoom()" style="flex:1; background: var(--primary); color: white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor: pointer; font-size: 1.05em;">隨機開房</button>
+                <button onclick="joinRoomBtn()" style="flex:1; background: var(--accent); color: #000; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor: pointer; font-size: 1.05em;">加入房間</button>
+            </div>
+            <div id="roomStatusText" style="margin-top: 10px; text-align: center; color: #666; font-size: 0.9em; font-weight:bold;">單機模式 (未連線)</div>
+            <button id="leaveRoomBtn" onclick="leaveRoom()" style="display:none; width:100%; margin-top:10px; background: #e0e0e0; color: #333; border:none; padding:10px; border-radius:8px; cursor: pointer; font-weight:bold;">🚪 離開房間 (轉回單機)</button>
+        </div>
+
+        <h3>👤 玩家設定</h3>
+        <div id="nameSettings"></div>
+        
+        <h3>⚙ 規則設定</h3>
+        <div class="settings-item"><span>百搭罰分 (手牌剩餘百搭)</span><div class="stepper"><button type="button" onclick="adjustSetting('jokerPenalty', -5)">−</button><span id="display-jokerPenalty">30</span><button type="button" onclick="adjustSetting('jokerPenalty', 5)">＋</button><input type="hidden" id="set-jokerPenalty" value="30"></div></div>
+        
+        <div class="settings-item">
+            <span>未起冰手牌懲罰</span>
+            <select id="set-noMeldRule" style="font-size: 0.95em; padding: 6px; border-radius: 6px; width: 160px; border: 1px solid #ddd;">
+                <option value="none">無懲罰 (照計點數)</option>
+                <option value="double">手牌點數雙計</option>
+                <option value="flat100">固定罰 100 分</option>
+            </select>
+        </div>
+
+        <div class="settings-item"><span>🔊 語音廣播</span><input type="checkbox" id="set-voice" style="width: 25px; height: 25px;"></div>
+
+        <h3>🔄 跨手機同步 / 備份</h3>
+        <div style="background:white; padding:15px; border-radius:8px;">
+            <p style="font-size:0.8em; color:#666; margin-top:0;">將以下代碼 Copy 並經 WhatsApp Send 俾朋友，佢哋喺下面「匯入」就可以同步所有分數同紀錄。</p>
+            <button onclick="exportData()" class="btn-wa" style="width:100%; margin-bottom:10px; padding:12px; font-size:1.05em; border-radius:8px; border:none; cursor: pointer;">📤 產生同步代碼並複製</button>
+            <textarea id="syncDataInput" placeholder="在此貼上朋友俾你嘅代碼..."></textarea>
+            <button onclick="importData()" style="width:100%; margin-top:5px; background:var(--primary); color:white; border:none; padding:12px; border-radius:8px; font-size:1.05em; font-weight:bold; cursor: pointer;">📥 匯入代碼同步數據</button>
+        </div>
+        
+        <button onclick="saveSettings()" style="background: var(--primary); color: white; width: 100%; margin: 20px 0; padding: 15px; border:none; border-radius:8px; font-size:1.15em; cursor: pointer;">💾 儲存設定及名稱</button>
+        
+        <div class="danger-zone">
+            <h4>⚠ 危險區域</h4>
+            <button onclick="resetScores()" class="btn-danger" style="width: 100%; padding: 15px; border:none; border-radius:8px; margin-bottom:10px; font-weight:bold; font-size:1.1em; cursor: pointer;">🧨 清空所有分數 (開新局)</button>
+            <button onclick="clearSessions()" class="btn-danger" style="width: 100%; padding: 15px; border: 1px solid #d32f2f; background: white; border-radius:8px; font-weight:bold; font-size:1.1em; cursor: pointer;">🗑️ 清除所有歷屆戰績</button>
+        </div>
+    </div>
+</div>
+
+<!-- 彈窗區 -->
+<!-- 😰 微調分數/手動罰分彈出框 -->
+<div id="zhuiModal" class="modal-overlay">
+    <div class="modal-content">
+        <h3>😰 手動扣分 / 補賞</h3>
+        <div class="settings-item" style="flex-direction: column; align-items: stretch;">
+            <span style="margin-bottom: 8px;">選擇目標玩家：</span>
+            <select id="zhuiPlayerId" style="width: 100%; font-size: 1.1em; padding: 10px; border: 1px solid #ddd; border-radius: 8px;"></select>
+            
+            <span style="margin-top: 15px; margin-bottom: 8px;">微調數值：</span>
+            <div style="display:flex; justify-content: space-between; align-items:center;">
+                <div class="stepper">
+                    <button type="button" onclick="adjustAdjustVal(-5)">−</button>
+                    <span id="adjustValDisplay">-10</span>
+                    <button type="button" onclick="adjustAdjustVal(5)">＋</button>
+                </div>
+                <input type="hidden" id="adjustVal" value="-10">
+                <span style="font-size: 0.85em; color: #666;">（負數扣分，正數加分）</span>
+            </div>
+        </div>
+        <div class="btn-row">
+            <button onclick="closeModal('zhuiModal')" style="background: #e0e0e0; color: #333;">取消</button>
+            <button style="background: var(--primary); color: white;" onclick="submitZhui()">確認調整</button>
+        </div>
+    </div>
+</div>
+
+<div id="emojiModal" class="modal-overlay"><div class="modal-content emoji-modal-content"><div class="emoji-modal-header"><h3>選擇動物</h3><button class="btn-close-circle" onclick="closeModal('emojiModal')">×</button></div><div class="emoji-grid-container" id="emojiGridBox"></div></div></div>
+
+<!-- 👑 Rummikub 贏家結算彈窗 -->
+<div id="winModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 460px;">
+        <h3>👑 Rummikub 單局勝出結算</h3>
+        <div style="background: #eaf2f8; padding: 10px; border-radius: 8px; margin-bottom: 12px; font-size: 1.05em; display:flex; justify-content:space-between; align-items:center;">
+            <span>本局勝出者:</span> 
+            <b id="winPlayerName" style="font-size: 1.25em; color: var(--primary-dark);"></b>
+        </div>
+        
+        <div style="font-size: 0.9em; font-weight: bold; margin-bottom: 8px; color: #555;">輸入其餘玩家手牌：</div>
+        
+        <div id="losersInputContainer">
+            <!-- 動態注入其餘 3 位玩家手牌輸入與加權狀態 -->
+        </div>
+
+        <div style="background: #fff8e1; border: 1px solid #ffe082; padding: 10px; border-radius: 8px; margin-top: 10px;">
+            <div style="font-weight:bold; color: var(--joker); font-size: 0.95em;">💡 計算提示：</div>
+            <div style="font-size:0.85em; color: #555; line-height:1.4;">
+                * 贏家獲得分數 = 所有輸家扣分之絕對值總和。<br>
+                * 若剔選「百搭罰」，則在手牌點數額外增加百搭罰分。<br>
+                * 若剔選「未起冰」，則套用設定的加倍或固定扣分。
+            </div>
+        </div>
+
+        <div class="btn-row">
+            <button onclick="closeModal('winModal')" style="background: #e0e0e0; color: #333;">取消</button>
+            <button class="btn-win" style="color: #000; font-weight: bold;" onclick="submitWin()">確認結算</button>
+        </div>
+    </div>
+</div>
+
+<!-- 底部導航 Menu Bar -->
+<nav>
+    <div onclick="showView('game')" id="nav-game" class="active">📊<br>計分</div>
+    <div onclick="showView('shuffle')" id="nav-shuffle">🎴<br>選位</div>
+    <div onclick="showView('calculator')" id="nav-calculator">🧮<br>計算機</div>
+    <div onclick="showView('history')" id="nav-history">📜<br>紀錄</div>
+    <div onclick="showView('sessions')" id="nav-sessions">🏆<br>戰績</div>
+    <div onclick="showView('settings')" id="nav-settings">⚙<br>設定</div>
+</nav>
+
+<!-- 🔴 Firebase 11.6.1 ES Module 載入 -->
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // 全域配置與初始化
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'hostinger-rummikub-app';
+    let firebaseConfig = null;
+    let app, auth, db, user;
+    let unsubscribeSnapshot = null;
+    let currentRoomId = localStorage.getItem('rmk_room_id') || '';
+    
+    // 看板模式與設定初始化
+    let scoreMode = localStorage.getItem('rmk_score_mode') === 'true';
+
+    const emojiList = ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🐒','🦍','🦧','🐔','🐧','🐦','🐤','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🐛','🦋','🐌','🐞','🐜','🦟','🦗','🐢','🐍','🦎','🦖','🦕','🐙','🦑','蝦','蟹','🐠','🐳','🐊','🦓','🐘','🦒','🐕','🐈','🐇'];
+
+    let players = JSON.parse(localStorage.getItem('rmk_players')) || [
+        { id: 0, name: "玩家 1", score: 0, wind: "1號位", emoji: "🐶", stats: { win: 0, jokers: 0, nomeld: 0, games: 0 } },
+        { id: 1, name: "玩家 2", score: 0, wind: "2號位", emoji: "🐱", stats: { win: 0, jokers: 0, nomeld: 0, games: 0 } },
+        { id: 2, name: "玩家 3", score: 0, wind: "3號位", emoji: "🐼", stats: { win: 0, jokers: 0, nomeld: 0, games: 0 } },
+        { id: 3, name: "玩家 4", score: 0, wind: "4號位", emoji: "🐯", stats: { win: 0, jokers: 0, nomeld: 0, games: 0 } }
+    ];
+    players.forEach(p => { if(!p.stats) p.stats = { win: 0, jokers: 0, nomeld: 0, games: 0 }; });
+
+    let config = JSON.parse(localStorage.getItem('rmk_config')) || { 
+        jokerPenalty: 30, 
+        noMeldRule: 'none', 
+        voiceEnabled: true 
+    };
+    
+    let sessions = JSON.parse(localStorage.getItem('rmk_sessions')) || [];
+    let history = JSON.parse(localStorage.getItem('rmk_history')) || [];
+    let currentWinnerId = null, currentEmojiPlayerId = null; 
+    let shuffledTiles = [], pickingIndex = 0, isShuffling = false;
+
+    // Rummikub 選位顏色池
+    const tileColors = ['black', 'red', 'blue', 'orange'];
+
+    // 快捷計算機狀態
+    let calcSum = 0;
+
+    // ----------------------------
+    // Base64 同步輔助
+    // ----------------------------
+    function utf8ToBase64(str) {
+        return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function(match, p1) { return String.fromCharCode('0x' + p1); }));
+    }
+
+    function base64ToUtf8(str) {
+        try { return decodeURIComponent(atob(str).split('').map(function(c) { return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2); }).join('')); } 
+        catch(e) { return null; }
+    }
+
+    function copyToClipboard(text) {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed"; 
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            const successful = document.execCommand('copy');
+            document.body.removeChild(textArea);
+            if (successful) return true;
+        } catch (err) { document.body.removeChild(textArea); }
+        if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text); return true; }
+        return false;
+    }
+
+    // ----------------------------
+    // 全域 視圖切換
+    // ----------------------------
+    function showView(viewName) {
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.querySelectorAll('nav div').forEach(n => n.classList.remove('active'));
+        
+        const elView = document.getElementById(`view-${viewName}`);
+        const elNav = document.getElementById(`nav-${viewName}`);
+        if(elView) elView.classList.add('active');
+        if(elNav) elNav.classList.add('active');
+        
+        if(viewName === 'sessions') renderSessions();
+        if(viewName === 'history') renderHistory();
+    }
+
+    // ----------------------------
+    // Firebase 實時對接
+    // ----------------------------
+    function getRoomRef(roomId) {
+        // 嚴格遵守 RULE 1 路徑規則
+        return doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+    }
+
+    async function syncToCloud() {
+        if (!user || !db || !currentRoomId) return;
+        try {
+            const roomDocRef = getRoomRef(currentRoomId);
+            const data = { players, config, history, sessions, lastUpdated: Date.now() };
+            await setDoc(roomDocRef, data);
+        } catch (e) { 
+            console.error("Firestore 同步失敗:", e);
+        }
+    }
+
+    function updateRoomUI() {
+        const statusText = document.getElementById('roomStatusText');
+        const leaveBtn = document.getElementById('leaveRoomBtn');
+        const badge = document.getElementById('headerRoomBadge');
+        if(currentRoomId) {
+            statusText.innerHTML = `<span style="color:var(--primary-dark);">🟢 已連線房號: <b>${currentRoomId}</b></span>`;
+            leaveBtn.style.display = 'block';
+            badge.style.display = 'inline-block';
+            badge.innerText = `🟢 ${currentRoomId}`;
+        } else {
+            statusText.innerHTML = `單機模式 (未連線)`;
+            leaveBtn.style.display = 'none';
+            badge.style.display = 'none';
+        }
+    }
+
+    async function createRoom() {
+        if (!db) return alert("Firebase 尚未成功連線，無法開房！");
+        const newId = Math.floor(10000 + Math.random() * 90000).toString();
+        joinFirebaseRoom(newId);
+    }
+
+    async function joinRoomBtn() {
+        if (!db) return alert("Firebase 尚未成功連線！");
+        const input = document.getElementById('roomIdInput').value.trim();
+        if(input.length !== 5) return alert("請輸入正確的 5 位數字房號！");
+        joinFirebaseRoom(input);
+    }
+
+    function leaveRoom() {
+        if(unsubscribeSnapshot) unsubscribeSnapshot();
+        currentRoomId = '';
+        localStorage.removeItem('rmk_room_id');
+        updateRoomUI();
+        alert("已切斷連線，回到單機模式。");
+    }
+
+    function joinFirebaseRoom(roomId) {
+        if(!user) return alert("系統正準備連線，請稍候重試。");
+        currentRoomId = roomId;
+        localStorage.setItem('rmk_room_id', roomId);
+        updateRoomUI();
+
+        if(unsubscribeSnapshot) unsubscribeSnapshot();
+        
+        try {
+            const docRef = getRoomRef(roomId);
+            unsubscribeSnapshot = onSnapshot(docRef, (docSnap) => {
+                if(docSnap.exists()) {
+                    const data = docSnap.data();
+                    const oldVoice = config.voiceEnabled; 
+                    players = data.players || players;
+                    config = data.config || config;
+                    config.voiceEnabled = oldVoice; 
+                    history = data.history || history;
+                    sessions = data.sessions || sessions;
+                    
+                    localStorage.setItem('rmk_players', JSON.stringify(players)); 
+                    localStorage.setItem('rmk_config', JSON.stringify(config)); 
+                    localStorage.setItem('rmk_history', JSON.stringify(history)); 
+                    localStorage.setItem('rmk_sessions', JSON.stringify(sessions));
+                    
+                    renderDashboard(); renderHistory(); renderSessions(); renderSettings();
+                } else {
+                    syncToCloud();
+                }
+            }, (err) => {
+                console.error("實時訂閱失敗:", err);
+                alert("即時房同步連線失敗，請檢查網路！" + err.message);
+            });
+            document.getElementById('roomIdInput').value = '';
+        } catch(e) {
+            console.error("進入房間異常:", e);
+        }
+    }
+
+    function saveData() { 
+        localStorage.setItem('rmk_players', JSON.stringify(players)); 
+        localStorage.setItem('rmk_config', JSON.stringify(config)); 
+        localStorage.setItem('rmk_history', JSON.stringify(history)); 
+        localStorage.setItem('rmk_sessions', JSON.stringify(sessions)); 
+        syncToCloud(); 
+    }
+
+    // ----------------------------
+    // 語音廣播 (Cantonese)
+    // ----------------------------
+    let cantoneseVoice = null;
+    function loadVoices() {
+        if (!('speechSynthesis' in window)) return;
+        cantoneseVoice = window.speechSynthesis.getVoices().find(v => 
+            v.lang === 'zh-HK' || v.lang === 'yue-HK' || v.lang.includes('HK') || v.name.includes('Hong Kong') || v.name.includes('Cantonese')
+        );
+    }
+    if ('speechSynthesis' in window && speechSynthesis.onvoiceschanged !== undefined) { 
+        speechSynthesis.onvoiceschanged = loadVoices; 
+    }
+    
+    document.addEventListener('click', function unlockAudio() {
+        if(config.voiceEnabled && 'speechSynthesis' in window) {
+            let u = new SpeechSynthesisUtterance(''); u.volume = 0; window.speechSynthesis.speak(u);
+        }
+        document.removeEventListener('click', unlockAudio);
+    }, {once: true});
+
+    function speak(text) {
+        if (!config.voiceEnabled || !('speechSynthesis' in window)) return;
+        if (!cantoneseVoice) loadVoices();
+        window.speechSynthesis.cancel();
+        
+        const utterance = new SpeechSynthesisUtterance(text);
+        if (cantoneseVoice) utterance.voice = cantoneseVoice; else utterance.lang = 'zh-HK'; 
+        utterance.rate = 1.05; window.speechSynthesis.speak(utterance);
+    }
+
+    // ----------------------------
+    // 純分數大看板模式切換
+    // ----------------------------
+    function toggleScoreMode() {
+        scoreMode = !scoreMode;
+        localStorage.setItem('rmk_score_mode', scoreMode);
+        updateScoreModeUI();
+    }
+
+    function updateScoreModeUI() {
+        const grid = document.getElementById('playerGrid');
+        const btn = document.getElementById('scoreModeToggleBtn');
+        if (!grid || !btn) return;
+
+        if (scoreMode) {
+            grid.classList.add('score-mode-active');
+            btn.innerHTML = "📊 切換回「手動操作模式」";
+            btn.style.background = "#e65100";
+        } else {
+            grid.classList.remove('score-mode-active');
+            btn.innerHTML = "🖥️ 一鍵切換「純分數看板」";
+            btn.style.background = "#1565c0";
+        }
+    }
+
+    // ----------------------------
+    // UI 看板繪製
+    // ----------------------------
+    function renderDashboard() {
+        const grid = document.getElementById('playerGrid');
+        const makeCard = (p) => {
+            if(!p) return '';
+            const scoreStr = `${p.score > 0 ? '+' : ''}${p.score}`;
+            
+            let lenClass = `score-len-${scoreStr.length}`;
+            if (scoreStr.length >= 5) lenClass = 'score-len-5';
+
+            return `
+            <div class="card-wrapper">
+                <div class="player-card">
+                    <div class="player-name">${p.emoji} ${p.name}</div>
+                    <div class="player-role">${p.wind}</div>
+                    <div class="player-score ${p.score >= 0 ? 'score-pos' : 'score-neg'} ${lenClass}">
+                        ${scoreStr}
+                    </div>
+                    <div class="main-actions">
+                        <button class="sq-btn btn-win" onclick="openWinModal(${p.id})">贏咗 👑</button>
+                    </div>
+                </div>
+            </div>`;
+        };
+        
+        // 按照 4 人十字座次排列（1-上、2-左、3-右、4-下）
+        const getPByWind = (windStr) => players.find(p => p.wind === windStr);
+        
+        grid.innerHTML = `
+            <div class="cross-row">${makeCard(getPByWind('2號位'))}</div>
+            <div class="cross-row">${makeCard(getPByWind('1號位'))}${makeCard(getPByWind('3號位'))}</div>
+            <div class="cross-row">${makeCard(getPByWind('4號位'))}</div>
+        `;
+        
+        updateScoreModeUI();
+    }
+
+    function renderHistory() {
+        const log = document.getElementById('historyLog');
+        if(history.length === 0) { log.innerHTML = "<p style='text-align:center; color:#999;'>當前局數暫無交易紀錄</p>"; return; }
+        log.innerHTML = history.slice().reverse().map((item, idx) => {
+            let changesHtml = '<div style="display:flex; flex-wrap:wrap; margin-top:6px;">';
+            Object.keys(item.change).forEach(pid => {
+                let val = item.change[pid];
+                if(val !== 0) {
+                    let p = players.find(x => x.id == pid);
+                    if(p) changesHtml += `<span class="change-badge" style="color:${val > 0 ? 'var(--win)' : 'var(--lose)'}">${p.emoji} ${val > 0 ? '+' : ''}${val}</span>`;
+                }
+            });
+            changesHtml += '</div>'; 
+            return `<div class="log-item"><div class="log-desc"><b>${item.desc}</b><br><small style="color: #888; font-size: 0.85em;">${item.time}</small>${changesHtml}</div><button class="undo-btn" onclick="undo(${history.length - 1 - idx})">撤銷</button></div>`;
+        }).join('');
+    }
+
+    function renderSessions() {
+        const list = document.getElementById('sessionList');
+        if(sessions.length === 0) { list.innerHTML = "<p style='text-align:center; color:#999;'>暫無歷史戰績</p>"; return; }
+        list.innerHTML = sessions.slice().reverse().map((s) => {
+            let waText = `🧩 Rummikub 魔力橋戰績結算 [${s.date}]\n` + s.results.map(r => `${r.emoji} ${r.name}: ${r.score >=0 ? '+':''}${r.score}`).join('\n');
+            let statsHtml = s.titles ? `<div class="stats-box"><b>👑 Rummikub 榮譽榜</b><br>🥇 終極大贏家: <b>${s.titles.winKing}</b><br>🃏 剩餘百搭王: <b>${s.titles.jokerKing}</b><br>🥶 未起冰之神: <b>${s.titles.noMeldKing}</b></div>` : '';
+            if(s.titles) waText += `\n\n👑 榮譽榜\n🥇 大贏家: ${s.titles.winKing}\n🃏 剩百搭王: ${s.titles.jokerKing}\n🥶 冰封王: ${s.titles.noMeldKing}`;
+            return `<div class="session-card"><div style="font-size:0.8em; color:#888; margin-bottom:10px; border-bottom:1px inset #eee;">📅 ${s.date}</div><div style="display:grid; grid-template-columns: 1fr 1fr; gap:5px;">${s.results.map(r => `<div style="font-size:0.9em;">${r.emoji} ${r.name}: <b style="color:${r.score >=0 ? 'green':'red'}">${r.score >=0 ? '+':''}${r.score}</b></div>`).join('')}</div>${statsHtml}<button onclick="window.open('whatsapp://send?text=${encodeURIComponent(waText)}')" class="btn-wa" style="width:100%; margin-top:15px; padding:12px; font-size:1.05em; border:none; border-radius:8px; cursor: pointer;">💬 WhatsApp 分享戰績</button></div>`;
+        }).join('');
+    }
+
+    function renderSettings() {
+        document.getElementById('nameSettings').innerHTML = `<div class="setup-grid">${players.map(p => `<div class="setup-card"><div class="player-label">${p.wind} 玩家</div><div class="setup-emoji-display" id="display-emoji-${p.id}" onclick="openEmojiModal(${p.id})">${p.emoji}</div><input type="hidden" id="input-emoji-${p.id}" value="${p.emoji}"><input type="text" id="name-${p.id}" class="setup-name-input" value="${p.name}"></div>`).join('')}</div>`;
+        
+        const jpVal = config.jokerPenalty || 30;
+        document.getElementById('set-jokerPenalty').value = jpVal;
+        document.getElementById('display-jokerPenalty').innerText = jpVal;
+        
+        document.getElementById('set-noMeldRule').value = config.noMeldRule || 'none';
+        document.getElementById('set-voice').checked = config.voiceEnabled;
+    }
+
+    function exportData() {
+        const allData = { players, config, sessions, history };
+        const code = utf8ToBase64(JSON.stringify(allData));
+        
+        if (copyToClipboard(code)) {
+            alert("✅ 同步代碼已成功複製！可前往 WhatsApp 貼上傳送給好友。");
+        } else {
+            document.getElementById('syncDataInput').value = code;
+            document.getElementById('syncDataInput').select();
+            alert("📋 由於瀏覽器限制，請手動複製下方文字框內代碼！");
+        }
+    }
+
+    function importData() {
+        const code = document.getElementById('syncDataInput').value.trim();
+        if(!code) return alert("請貼上代碼。");
+        try {
+            const jsonString = base64ToUtf8(code);
+            if (!jsonString) throw new Error("解碼失敗");
+            
+            const decodedData = JSON.parse(jsonString);
+            if (!decodedData.players || !Array.isArray(decodedData.players)) throw new Error("無效的資料格式");
+
+            if(confirm("⚠ 匯入代碼會完全覆蓋此手機的當前紀錄，確定嗎？")) {
+                players = decodedData.players; 
+                config = decodedData.config || config;
+                sessions = decodedData.sessions || []; 
+                history = decodedData.history || [];
+                saveData(); 
+                location.reload();
+            }
+        } catch(e) { 
+            alert("❌ 匯入代碼錯誤，請確認代碼是否完整！"); 
+        }
+    }
+
+    // ----------------------------
+    // Rummikub 翻牌抽座位機制
+    // ----------------------------
+    function startShuffle() {
+        shuffledTiles = [];
+        for (let i = 0; i < 4; i++) {
+            const num = Math.floor(Math.random() * 13) + 1; // 1 to 13
+            const color = tileColors[Math.floor(Math.random() * tileColors.length)];
+            shuffledTiles.push({ num, color });
+        }
+        pickingIndex = 0; 
+        isShuffling = true;
+        
+        document.querySelectorAll('.rummi-tile').forEach(t => { 
+            t.innerHTML = ''; 
+            t.classList.remove('revealed'); 
+        });
+        document.getElementById('shuffleStatus').innerHTML = `請首位 <b>${players[0].emoji} ${players[0].name}</b> 翻牌`;
+    }
+
+    function pickTile(idx) {
+        if (!isShuffling || pickingIndex >= 4) return;
+        const tile = document.getElementById(`tile-${idx}`); 
+        if (tile.classList.contains('revealed')) return;
+        
+        const picked = shuffledTiles[pickingIndex];
+        tile.innerHTML = `<span class="rummi-tile-num rummi-tile-color-${picked.color}">${picked.num}</span>`;
+        tile.classList.add('revealed');
+        
+        // 更改該玩家順序位置
+        players[pickingIndex].wind = `${pickingIndex + 1}號位`; 
+        pickingIndex++;
+        
+        if (pickingIndex < 4) {
+            document.getElementById('shuffleStatus').innerHTML = `請 <b>${players[pickingIndex].emoji} ${players[pickingIndex].name}</b> 翻牌`;
+        } else { 
+            document.getElementById('shuffleStatus').innerText = `全部翻開！請依大至小選座！`; 
+            setTimeout(() => { 
+                isShuffling = false; 
+                saveData(); 
+                renderDashboard();
+                showView('game'); 
+            }, 3000); 
+        }
+    }
+
+    // ----------------------------
+    // 😰 微調補分 Modal 與機制
+    // ----------------------------
+    function openZhuiModal() { 
+        document.getElementById('zhuiPlayerId').innerHTML = players.map(x => `<option value="${x.id}">${x.emoji} ${x.wind} - ${x.name}</option>`).join(''); 
+        document.getElementById('adjustVal').value = "-10";
+        document.getElementById('adjustValDisplay').innerText = "-10";
+        document.getElementById('zhuiModal').style.display = 'flex'; 
+    }
+
+    function adjustAdjustVal(delta) {
+        const valEl = document.getElementById('adjustVal');
+        const dispEl = document.getElementById('adjustValDisplay');
+        let current = parseInt(valEl.value) || 0;
+        current += delta;
+        valEl.value = current;
+        dispEl.innerText = `${current > 0 ? '+' : ''}${current}`;
+    }
+
+    function closeModal(id) { 
+        document.getElementById(id).style.display = 'none'; 
+    }
+
+    function submitZhui() { 
+        const pid = parseInt(document.getElementById('zhuiPlayerId').value); 
+        const adjustVal = parseInt(document.getElementById('adjustVal').value) || 0;
+        
+        const p = players.find(x => x.id === pid);
+        const change = {};
+        
+        players.forEach(x => {
+            if(x.id === pid) change[x.id] = adjustVal;
+            else change[x.id] = 0;
+        });
+        
+        applyChange(change, `🛠️ 手動微調 ${p.emoji} ${p.name} 的分數`, []);
+        speak(`${p.name}分數已微調`);
+        closeModal('zhuiModal'); 
+    }
+
+    // ----------------------------
+    // 👑 Rummikub 單局結算與計算法
+    // ----------------------------
+    function openWinModal(pid) {
+        currentWinnerId = pid; 
+        const winner = players.find(x => x.id === pid);
+        document.getElementById('winPlayerName').innerText = `${winner.emoji} ${winner.name}`;
+        
+        // 渲染其他輸家的輸入控件
+        const losers = players.filter(x => x.id !== pid);
+        const container = document.getElementById('losersInputContainer');
+        
+        container.innerHTML = losers.map((p, i) => `
+            <div class="settle-row">
+                <div class="settle-row-header">
+                    <span class="settle-player-info">${p.emoji} ${p.name}</span>
+                    <input type="number" id="hand-${p.id}" class="settle-input" min="0" value="0" placeholder="手牌" oninput="calculatePreview()">
+                </div>
+                <div class="settle-row-actions">
+                    <button type="button" class="btn-quick-tag" id="joker-btn-${p.id}" onclick="toggleJokerTag(${p.id})">🃏 百搭</button>
+                    <button type="button" class="btn-quick-tag btn-quick-tag no-meld" id="meld-btn-${p.id}" onclick="toggleMeldTag(${p.id})">🥶 未起冰</button>
+                    <button type="button" class="btn-quick-tag" onclick="setQuickScore(${p.id}, 40)">固定罰40</button>
+                    <button type="button" class="btn-quick-tag" onclick="setQuickScore(${p.id}, 0)">清零</button>
+                </div>
+            </div>
+        `).join('');
+        
+        document.getElementById('winModal').style.display = 'flex';
+    }
+
+    // 快捷標籤開關與即時更新預覽
+    function toggleJokerTag(pid) {
+        const btn = document.getElementById(`joker-btn-${pid}`);
+        btn.classList.toggle('active');
+        calculatePreview();
+    }
+
+    function toggleMeldTag(pid) {
+        const btn = document.getElementById(`meld-btn-${pid}`);
+        btn.classList.toggle('active');
+        calculatePreview();
+    }
+
+    function setQuickScore(pid, val) {
+        const input = document.getElementById(`hand-${pid}`);
+        input.value = val;
+        calculatePreview();
+    }
+
+    // 計算當前在輸入狀態下的所有扣分及回饋
+    function calculatePreview() {
+        // 這邊僅供內部預覽或確保數值大於 0
+        players.forEach(p => {
+            if(p.id !== currentWinnerId) {
+                const el = document.getElementById(`hand-${p.id}`);
+                if(el && (parseInt(el.value) < 0 || isNaN(parseInt(el.value)))) {
+                    el.value = 0;
+                }
+            }
+        });
+    }
+
+    function submitWin() {
+        const change = {};
+        let statUpdates = [];
+        const winner = players.find(x => x.id === currentWinnerId);
+        
+        let winSum = 0;
+        let descList = [];
+        
+        // 獲取當前計分規則
+        const jokerPenalty = config.jokerPenalty || 30;
+        const noMeldRule = config.noMeldRule || 'none';
+        
+        players.forEach(p => {
+            if (p.id === currentWinnerId) {
+                return;
+            }
+            
+            const rawInput = parseInt(document.getElementById(`hand-${p.id}`).value) || 0;
+            const hasJoker = document.getElementById(`joker-btn-${p.id}`).classList.contains('active');
+            const hasNoMeld = document.getElementById(`meld-btn-${p.id}`).classList.contains('active');
+            
+            let finalPenalty = rawInput;
+            let detailDesc = `${rawInput}點`;
+            
+            // 1. 先加上百搭罰分
+            if (hasJoker) {
+                finalPenalty += jokerPenalty;
+                detailDesc += ` + 百搭罰${jokerPenalty}`;
+                statUpdates.push({ id: p.id, type: 'jokers', val: 1 });
+            }
+            
+            // 2. 判斷未起冰處理
+            if (hasNoMeld) {
+                statUpdates.push({ id: p.id, type: 'nomeld', val: 1 });
+                if (noMeldRule === 'double') {
+                    finalPenalty = finalPenalty * 2;
+                    detailDesc = `(${detailDesc}) x 2倍雙計`;
+                } else if (noMeldRule === 'flat100') {
+                    finalPenalty = 100;
+                    detailDesc = `未起冰(固定-100)`;
+                } else {
+                    detailDesc += ` (未起冰無額外加罰)`;
+                }
+            }
+            
+            // Rummikub 罰分為負
+            change[p.id] = -finalPenalty;
+            winSum += finalPenalty;
+            
+            descList.push(`${p.name} 罰 ${finalPenalty} (${detailDesc})`);
+        });
+        
+        change[winner.id] = winSum;
+        statUpdates.push({ id: winner.id, type: 'win', val: 1 });
+        
+        // 登記所有人參與了一次
+        players.forEach(p => {
+            statUpdates.push({ id: p.id, type: 'games', val: 1 });
+        });
+
+        const logDesc = `👑 ${winner.emoji} ${winner.name} 贏家胡牌 (+${winSum}) | ${descList.join(', ')}`;
+        applyChange(change, logDesc, statUpdates);
+        
+        speak(`${winner.name}，勝出！本局贏 ${winSum} 分`);
+        closeModal('winModal');
+    }
+
+    // ----------------------------
+    // 🧮 內置快捷點數加算器核心邏輯
+    // ----------------------------
+    function pressCalcNum(val) {
+        calcSum += val;
+        document.getElementById('calcDisplay').innerText = calcSum;
+    }
+
+    function pressCalcOp(op) {
+        if(op === '+10') calcSum += 10;
+        if(op === '+30') calcSum += 30;
+        document.getElementById('calcDisplay').innerText = calcSum;
+    }
+
+    function clearCalc() {
+        calcSum = 0;
+        document.getElementById('calcDisplay').innerText = "0";
+    }
+
+    function sendToSettleInput(playerIndex) {
+        // playerIndex 為玩家陣列索引 0-3
+        const p = players[playerIndex];
+        
+        // 檢查當前有沒有開啟結算面板，若無則幫他打開
+        const winModal = document.getElementById('winModal');
+        if (winModal.style.display !== 'flex') {
+            alert(`💡 提示：請先在主頁點擊勝出者的「贏咗 👑」按鈕開啟結算面板後，再來這裡點選要把分數傳給哪位輸家！`);
+            return;
+        }
+
+        const input = document.getElementById(`hand-${p.id}`);
+        if(input) {
+            input.value = calcSum;
+            calculatePreview();
+            alert(`✅ 已將 ${calcSum} 分傳入至 ${p.emoji} ${p.name} 的手牌點數欄位`);
+            clearCalc();
+            showView('game');
+        } else {
+            alert(`❌ 無法傳入！該玩家可能是勝出者，無須計入剩餘手牌。`);
+        }
+    }
+
+    // ----------------------------
+    // 統一計分變更套用
+    // ----------------------------
+    function applyChange(change, desc, statUpdates = []) {
+        players.forEach(p => { 
+            if(change[p.id] !== undefined) p.score += change[p.id]; 
+        });
+        statUpdates.forEach(su => { 
+            let p = players.find(x => x.id === su.id); 
+            if(p && p.stats) p.stats[su.type] += su.val; 
+        });
+        history.push({ desc, change, statUpdates, time: new Date().toLocaleTimeString() });
+        saveData(); 
+        renderDashboard();
+    }
+
+    function undo(index) {
+        const item = history[index];
+        players.forEach(p => { 
+            if(item.change[p.id] !== undefined) p.score -= item.change[p.id]; 
+        });
+        if(item.statUpdates) { 
+            item.statUpdates.forEach(su => { 
+                let p = players.find(x => x.id === su.id); 
+                if(p && p.stats) p.stats[su.type] -= su.val; 
+            }); 
+        }
+        history.splice(index, 1); 
+        saveData(); 
+        renderDashboard(); 
+        renderHistory();
+    }
+
+    function resetScores() { 
+        if(!confirm("⚠ 確定要清空當前所有分數？（此動作不會影響歷史戰績）")) return;
+        players.forEach(p => { 
+            p.score = 0; 
+            p.stats = { win: 0, jokers: 0, nomeld: 0, games: 0 }; 
+        }); 
+        history = []; 
+        saveData(); 
+        renderDashboard(); 
+        showView('game');
+    }
+
+    function clearSessions() { 
+        if(!confirm("⚠ 警告：確定要清除所有歷屆戰績及榮譽榜嗎？此動作無法復原！")) return; 
+        sessions = []; 
+        saveData(); 
+        renderSessions(); 
+        alert("✅ 歷屆戰績已成功清除！"); 
+    }
+    
+    function openEmojiModal(pid) { 
+        currentEmojiPlayerId = pid; 
+        document.getElementById('emojiGridBox').innerHTML = emojiList.map(e => `<div class="emoji-item" onclick="selectEmoji('${e}')">${e}</div>`).join(''); 
+        document.getElementById('emojiModal').style.display = 'flex'; 
+    }
+
+    function selectEmoji(emoji) { 
+        if (currentEmojiPlayerId !== null) { 
+            document.getElementById(`display-emoji-${currentEmojiPlayerId}`).innerText = emoji; 
+            document.getElementById(`input-emoji-${currentEmojiPlayerId}`).value = emoji; 
+        } 
+        closeModal('emojiModal'); 
+    }
+
+    function adjustSetting(key, delta) { 
+        const i = document.getElementById(`set-${key}`); 
+        const d = document.getElementById(`display-${key}`); 
+        let v = (parseInt(i.value)||0)+delta; 
+        if(v<0) v=0; 
+        i.value=v; d.innerText=v; 
+    }
+
+    function saveSettings() {
+        players.forEach(p => { 
+            p.name = document.getElementById(`name-${p.id}`).value; 
+            p.emoji = document.getElementById(`input-emoji-${p.id}`).value; 
+        });
+        config.jokerPenalty = parseInt(document.getElementById(`set-jokerPenalty`).value);
+        config.noMeldRule = document.getElementById('set-noMeldRule').value;
+        config.voiceEnabled = document.getElementById('set-voice').checked;
+        saveData(); 
+        renderDashboard(); 
+        showView('game');
+    }
+    
+    function confirmEndSession() {
+        if(!confirm("完場結算會儲存今日累計的分數，並將主畫面清零重開新局。確定嗎？")) return;
+        const now = new Date(); 
+        
+        const getKings = (statType) => { 
+            let max = -1; let kings = []; 
+            players.forEach(p => { 
+                if(p.stats[statType] > max) { max = p.stats[statType]; kings = [p]; } 
+                else if(p.stats[statType] === max) { kings.push(p); } 
+            }); 
+            if(max <= 0) return "無"; 
+            return kings.map(k => `${k.emoji}${k.name}`).join(', ') + ` (${max}次)`; 
+        };
+        
+        // 算出大贏家 (最高分)
+        let maxScore = -99999;
+        let bigWinners = [];
+        players.forEach(p => {
+            if(p.score > maxScore) { maxScore = p.score; bigWinners = [p]; }
+            else if(p.score === maxScore) { bigWinners.push(p); }
+        });
+        const winKingStr = bigWinners.map(k => `${k.emoji}${k.name}`).join(', ') + ` (${maxScore}分)`;
+
+        const titles = { 
+            winKing: winKingStr,
+            jokerKing: getKings('jokers'), 
+            noMeldKing: getKings('nomeld')
+        };
+        
+        sessions.push({ 
+            date: `${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${(now.getMinutes()<10?'0':'')+now.getMinutes()}`, 
+            results: players.map(p => ({ name: p.name, emoji: p.emoji, score: p.score })), 
+            titles: titles 
+        });
+        
+        players.forEach(p => { 
+            p.score = 0; 
+            p.stats = { win: 0, jokers: 0, nomeld: 0, games: 0 }; 
+        }); 
+        history = []; 
+        saveData(); 
+        renderDashboard(); 
+        showView('sessions');
+    }
+
+    // ----------------------------
+    // 網頁掛載與初始化
+    // ----------------------------
+    async function init() {
+        // 渲染基礎界面
+        renderDashboard();
+        renderSettings();
+        
+        setTimeout(loadVoices, 500); 
+
+        // 讀取 Canvas 環境中的 Firebase 配置
+        if (typeof __firebase_config !== 'undefined') {
+            try {
+                firebaseConfig = JSON.parse(__firebase_config);
+            } catch(e) {
+                console.warn("無法解析全局 Firebase 配置", e);
+            }
+        }
+
+        // 🟢 如果有提供完整的 Firebase 配置，則啟用網路對戰房即時同步功能
+        if (firebaseConfig && firebaseConfig.projectId && firebaseConfig.apiKey) {
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                // RULE 3: 先執行匿名登入，完成後才嘗試讀取/建立房間
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (u) => {
+                    user = u;
+                    if (user && currentRoomId) {
+                        joinFirebaseRoom(currentRoomId);
+                    }
+                });
+            } catch(e) {
+                console.error("Firebase 連線初始化失敗:", e);
+            }
+        } else {
+            console.log("正在使用本機 Offline 單機模式運作 (未配置 Firebase 參數)");
+        }
+        
+        updateRoomUI();
+    }
+
+    // 將需要從 HTML 行內 onclick 呼叫的函數綁定至 window
+    window.showView = showView;
+    window.createRoom = createRoom;
+    window.joinRoomBtn = joinRoomBtn;
+    window.leaveRoom = leaveRoom;
+    window.toggleScoreMode = toggleScoreMode;
+    window.exportData = exportData;
+    window.importData = importData;
+    window.startShuffle = startShuffle;
+    window.pickTile = pickTile;
+    window.openZhuiModal = openZhuiModal;
+    window.adjustAdjustVal = adjustAdjustVal;
+    window.closeModal = closeModal;
+    window.submitZhui = submitZhui;
+    window.openWinModal = openWinModal;
+    window.toggleJokerTag = toggleJokerTag;
+    window.toggleMeldTag = toggleMeldTag;
+    window.setQuickScore = setQuickScore;
+    window.calculatePreview = calculatePreview;
+    window.submitWin = submitWin;
+    window.pressCalcNum = pressCalcNum;
+    window.pressCalcOp = pressCalcOp;
+    window.clearCalc = clearCalc;
+    window.sendToSettleInput = sendToSettleInput;
+    window.undo = undo;
+    window.resetScores = resetScores;
+    window.clearSessions = clearSessions;
+    window.openEmojiModal = openEmojiModal;
+    window.selectEmoji = selectEmoji;
+    window.adjustSetting = adjustSetting;
+    window.saveSettings = saveSettings;
+    window.confirmEndSession = confirmEndSession;
+
+    window.onload = init;
+</script>
+</body>
+</html>
