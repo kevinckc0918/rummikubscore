@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>專業 Rummikub 計分器 V1.2</title>
+    <title>專業 Rummikub 計分器 V1.3</title>
     
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#1a237e">
@@ -316,6 +316,14 @@
             <button id="leaveRoomBtn" onclick="leaveRoom()" style="display:none; width:100%; margin-top:10px; background: #e0e0e0; color: #333; border:none; padding:10px; border-radius:8px; cursor: pointer; font-weight:bold;">🚪 離開房間 (轉回單機)</button>
         </div>
 
+        <!-- 🔑 新增：手動粘貼 Firebase 設定 (防呆備用連線) -->
+        <div class="online-zone" style="background: #efebe9; border-color: #d7ccc8;">
+            <h4 style="color: #4e342e; margin-top:0; margin-bottom:5px; font-size: 1.1em;">🌐 備用方案：手動粘貼金鑰連線</h4>
+            <p style="font-size:0.8em; color:#5d4037; margin-top:0;">若伺服器環境變數載入失敗，可將您的 Firebase Config JSON 直接粘貼在下方：</p>
+            <textarea id="manualFirebaseInput" style="height: 70px; font-size: 11px;" placeholder='格式如: {"apiKey": "...", "projectId": "...", ...}'></textarea>
+            <button onclick="saveManualFirebaseConfig()" style="width:100%; margin-top:5px; background: #5d4037; color: white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor: pointer; font-size: 0.95em;">💾 儲存並強制啟用連線</button>
+        </div>
+
         <h3>👤 玩家設定</h3>
         <div id="nameSettings"></div>
         
@@ -411,7 +419,7 @@
     </div>
 </div>
 
-<!-- 🧮 專用：覆蓋型手牌加數計算機彈出框 (完美解決結算時無法使用的痛點) -->
+<!-- 🧮 專用：覆蓋型手牌加數計算機彈出框 -->
 <div id="calcModal" class="modal-overlay" style="z-index: 1100;">
     <div class="modal-content" style="max-width: 400px; padding: 20px;">
         <h3 id="calcModalTitle" style="font-size: 1.25em; margin-bottom: 15px; color: var(--primary-dark);">🧮 幫玩家計算點數</h3>
@@ -584,13 +592,13 @@
     }
 
     async function createRoom() {
-        if (!db) return alert("Firebase 尚未成功連線！請先放置正確的 firebase-config.json 於此目錄下。");
+        if (!db) return alert("Firebase 尚未成功連線！請確保手動金鑰已貼入，或 Coolify 中已放置設定檔。");
         const newId = Math.floor(10000 + Math.random() * 90000).toString();
         joinFirebaseRoom(newId);
     }
 
     async function joinRoomBtn() {
-        if (!db) return alert("Firebase 尚未成功連線！請確認設定。");
+        if (!db) return alert("Firebase 尚未成功連線！");
         const input = document.getElementById('roomIdInput').value.trim();
         if(input.length !== 5) return alert("請輸入正確的 5 位數字房號！");
         joinFirebaseRoom(input);
@@ -781,9 +789,13 @@
         
         document.getElementById('set-noMeldRule').value = config.noMeldRule || 'none';
         document.getElementById('set-voice').checked = config.voiceEnabled;
+
+        // 讀取手動金鑰框
+        const manualSaved = localStorage.getItem('rmk_manual_firebase_config') || '';
+        document.getElementById('manualFirebaseInput').value = manualSaved;
     }
 
-    // 👥 即時同步渲染計算機發送目標玩家按鈕 (完美解決計算機名單不更新問題)
+    // 👥 即時同步渲染計算機發送目標玩家按鈕
     function renderCalculatorTargets() {
         const container = document.getElementById('calcTargetsContainer');
         if (!container) return;
@@ -927,7 +939,6 @@
         const winner = players.find(x => x.id === pid);
         document.getElementById('winPlayerName').innerText = `${winner.emoji} ${winner.name}`;
         
-        // 渲染其他輸家的輸入控件 (新增 🧮 計算快捷按鈕)
         const losers = players.filter(x => x.id !== pid);
         const container = document.getElementById('losersInputContainer');
         
@@ -1044,7 +1055,7 @@
     }
 
     // ----------------------------
-    // 🧮 專用覆蓋型計算機核心邏輯 (為結算彈窗中的每位玩家獨立計算)
+    // 🧮 專用覆蓋型計算機核心邏輯
     // ----------------------------
     function openCalcForPlayer(pid) {
         activeCalcPlayerId = pid;
@@ -1229,6 +1240,27 @@
         i.value=v; d.innerText=v; 
     }
 
+    // 🔑 新增：手動儲存 Firebase 備用連線金鑰
+    function saveManualFirebaseConfig() {
+        const inputVal = document.getElementById('manualFirebaseInput').value.trim();
+        if(!inputVal) {
+            localStorage.removeItem('rmk_manual_firebase_config');
+            alert("🧹 已清除手動金鑰，系統將嘗試使用環境變數或預設設定。請重啟頁面。");
+            location.reload();
+            return;
+        }
+
+        try {
+            // 語法校驗
+            JSON.parse(inputVal);
+            localStorage.setItem('rmk_manual_firebase_config', inputVal);
+            alert("🎉 金鑰保存成功！系統將自動嘗試以此設定連線。網頁將立即重啟...");
+            location.reload();
+        } catch(e) {
+            alert("❌ 金鑰格式錯誤！請確保您貼上的是完整的 JSON 格式字串。例如:\n{\n  \"apiKey\": \"...\",\n  \"projectId\": \"...\"\n}");
+        }
+    }
+
     function saveSettings() {
         players.forEach(p => { 
             p.name = document.getElementById(`name-${p.id}`).value; 
@@ -1289,7 +1321,7 @@
     }
 
     // ----------------------------
-    // 網頁掛載與初始化 (採用與 9.3 版完全相同的兼容讀取與 anonymous 登錄流程)
+    // 網頁掛載與安全連線初始化流程
     // ----------------------------
     async function init() {
         renderDashboard();
@@ -1298,34 +1330,47 @@
         
         setTimeout(loadVoices, 500); 
 
-        // 1. 優先嘗試讀取 Canvas 預覽環境變數
-        if (typeof __firebase_config !== 'undefined') {
+        // 1. 優先嘗試讀取手動粘貼在本地的 config 金鑰 (最保險、專治 Coolify/Static 連線難題)
+        const manualConfigString = localStorage.getItem('rmk_manual_firebase_config');
+        if (manualConfigString) {
+            try {
+                firebaseConfig = JSON.parse(manualConfigString);
+                console.log("🟢 成功加載手動貼入的金鑰！");
+            } catch(e) {
+                console.error("手動金鑰解析出錯:", e);
+            }
+        }
+
+        // 2. 其次嘗試讀取預設系統/Canvas預覽環境變數
+        if (!firebaseConfig && typeof __firebase_config !== 'undefined') {
             try {
                 firebaseConfig = JSON.parse(__firebase_config);
             } catch(e) {
                 console.warn("無法解析 Canvas Firebase 環境配置", e);
             }
-        } else {
-            // 2. 否則嘗試從伺服器讀取本地設定檔 (解決 Hostinger 報錯的關鍵)
+        }
+
+        // 3. 最後嘗試拉取本地檔案 (對應 Coolify 解決方案 1 的自動建置命令)
+        if (!firebaseConfig) {
             try {
                 const response = await fetch('./firebase-config.json');
                 if (response.ok) {
                     firebaseConfig = await response.json();
-                    console.log("成功載入外部 Firebase 設定！");
+                    console.log("🟢 成功加載 firebase-config.json 設定檔！");
                 }
             } catch(e) {
-                console.log("未檢測到外部 firebase-config.json，將使用預設單機模式。");
+                console.log("未檢測到外部檔案，將等待手動輸入或繼續以單機模式運行。");
             }
         }
 
-        // 3. 🟢 檢查 Firebase SDK 是否載入完成並進行連線
+        // 4. 🟢 連線至 Firebase
         if (firebaseSupported && firebaseConfig && firebaseConfig.projectId && firebaseConfig.apiKey) {
             try {
                 firebase.initializeApp(firebaseConfig);
                 auth = firebase.auth();
                 db = firebase.firestore();
 
-                // 優先使用自訂 Token 登入或安全匿名登入 (RULE 3)
+                // 完美遵守 RULE 3：先登錄後監聽
                 const initAuth = async () => {
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         await auth.signInWithCustomToken(__initial_auth_token);
@@ -1342,18 +1387,61 @@
                         }
                     });
                 }).catch(err => {
-                    console.error("Firebase 登入失敗:", err);
-                    alert("Firebase 登入失敗！請確保已在 Firebase Console 中開啟「Anonymous (匿名)」登入。\n詳細錯誤: " + err.message);
+                    console.error("Firebase Auth failed:", err);
+                    alert("Firebase 驗證失敗，請開啟 Anonymous 匿名登錄權限！\n詳細資訊: " + err.message);
                 });
             } catch(e) {
                 console.error("Firebase 初始化失敗:", e);
             }
         } else {
-            console.log("正在使用單機模式運作 (未配置連線參數)");
+            console.log("目前處於單機模式運行 (未檢測到有效 Firebase 配置)");
         }
         
         updateRoomUI();
     }
+
+    // 將行內 onclick 呼叫的函數綁定至 window
+    window.showView = showView;
+    window.createRoom = createRoom;
+    window.joinRoomBtn = joinRoomBtn;
+    window.leaveRoom = leaveRoom;
+    window.toggleScoreMode = toggleScoreMode;
+    window.exportData = exportData;
+    window.importData = importData;
+    window.startShuffle = startShuffle;
+    window.pickTile = pickTile;
+    window.openZhuiModal = openZhuiModal;
+    window.adjustAdjustVal = adjustAdjustVal;
+    window.closeModal = closeModal;
+    window.submitZhui = submitZhui;
+    window.openWinModal = openWinModal;
+    window.toggleJokerTag = toggleJokerTag;
+    window.toggleMeldTag = toggleMeldTag;
+    window.setQuickScore = setQuickScore;
+    window.calculatePreview = calculatePreview;
+    window.submitWin = submitWin;
+    window.pressCalcNum = pressCalcNum;
+    window.pressCalcOp = pressCalcOp;
+    window.clearCalc = clearCalc;
+    window.sendToSettleInput = sendToSettleInput;
+    window.undo = undo;
+    window.resetScores = resetScores;
+    window.clearSessions = clearSessions;
+    window.openEmojiModal = openEmojiModal;
+    window.selectEmoji = selectEmoji;
+    window.adjustSetting = adjustSetting;
+    window.saveSettings = saveSettings;
+    window.confirmEndSession = confirmEndSession;
+
+    // 計算機 & 手動設定函數
+    window.openCalcForPlayer = openCalcForPlayer;
+    window.pressModalCalcNum = pressModalCalcNum;
+    window.pressModalCalcOp = pressModalCalcOp;
+    window.clearModalCalc = clearModalCalc;
+    window.backspaceModalCalc = backspaceModalCalc;
+    window.submitModalCalc = submitModalCalc;
+    window.renderCalculatorTargets = renderCalculatorTargets;
+    window.saveManualFirebaseConfig = saveManualFirebaseConfig;
 
     window.onload = init;
 </script>
