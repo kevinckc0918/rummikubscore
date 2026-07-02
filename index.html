@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>專業 Rummikub 計分器 V1.0</title>
+    <title>專業 Rummikub 計分器 V1.1</title>
     
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#1a237e">
@@ -190,7 +190,7 @@
 
         /* Rummikub 計算機專用 */
         .calc-panel { background: white; border-radius: 12px; padding: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 15px; }
-        .calc-screen { font-size: 2.2em; font-weight: bold; text-align: right; background: #e0f2f1; padding: 10px; border-radius: 8px; margin-bottom: 15px; color: #004d40; border: 1px inset #b2dfdb; }
+        .calc-screen { font-size: 2.2em; font-weight: bold; text-align: right; background: #e0f2f1; padding: 10px; border-radius: 8px; margin-bottom: 15px; color: #004d40; border: 1px inset #b2dfdb; word-wrap: break-word; }
         .calc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
         .calc-btn { padding: 15px 5px; font-size: 1.2em; font-weight: bold; border-radius: 8px; border: none; cursor: pointer; background: #e0e0e0; text-align: center; }
         .calc-btn:active { opacity: 0.8; transform: scale(0.95); }
@@ -203,7 +203,7 @@
         .settle-row { display: flex; flex-direction: column; background: #f9f9f9; padding: 10px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid var(--primary); }
         .settle-row-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         .settle-player-info { display: flex; align-items: center; gap: 5px; font-weight: bold; font-size: 1.1em; }
-        .settle-row-actions { display: flex; gap: 8px; align-items: center; }
+        .settle-row-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
         .btn-quick-tag { padding: 4px 8px; font-size: 0.8em; border-radius: 4px; border: 1px solid #ccc; background: white; cursor: pointer; font-weight: bold; }
         .btn-quick-tag.active { background: var(--joker); color: white; border-color: var(--joker); }
         .btn-quick-tag.no-meld { background: #9e9e9e; color: white; border-color: #9e9e9e; }
@@ -236,7 +236,7 @@
         <div class="cross-layout" id="playerGrid"></div>
     </div>
 
-    <!-- 🧩 抽牌選位與手牌計算器雙視圖 -->
+    <!-- 🎴 Rummikub 決定座席與抽手順序 -->
     <div id="view-shuffle" class="view">
         <h3 style="text-align: center; margin-bottom: 5px; color: var(--primary-dark);">🎴 Rummikub 抽牌座位決定</h3>
         <div style="text-align: center; font-size: 0.9em; color:#666; margin-bottom: 10px;">翻開隨機數字牌（1-13），最大者先選位置及當首家</div>
@@ -250,7 +250,7 @@
         <button onclick="startShuffle()" style="background: var(--primary); color: white; width: 100%; padding: 12px; font-size: 1.1em; border:none; border-radius:8px; font-weight:bold; box-shadow: 0 2px 4px rgba(0,0,0,0.15); cursor:pointer;">♻️ 重新洗牌 / 重新抽位</button>
     </div>
 
-    <!-- 🧮 內置快捷手牌計算器 -->
+    <!-- 🧮 內置快捷分頁手牌計算機 -->
     <div id="view-calculator" class="view">
         <h3 style="color: var(--primary-dark); margin-bottom: 5px;">🧮 快捷手牌點數累計器</h3>
         <p style="font-size:0.85em; color:#666; margin-top:0;">點擊數字即可累加剩餘手牌，方便輸家快速計算總罰分，省去心算煩惱！</p>
@@ -279,12 +279,9 @@
             </div>
             
             <div class="calc-targets">
-                <span style="font-weight:bold; font-size:0.9em; color:#333;">直接將當前得分傳送到：</span>
-                <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 5px;">
-                    <button class="calc-btn action-btn" style="padding: 10px 0; font-size: 0.9em;" onclick="sendToSettleInput(0)">玩家1</button>
-                    <button class="calc-btn action-btn" style="padding: 10px 0; font-size: 0.9em;" onclick="sendToSettleInput(1)">玩家2</button>
-                    <button class="calc-btn action-btn" style="padding: 10px 0; font-size: 0.9em;" onclick="sendToSettleInput(2)">玩家3</button>
-                    <button class="calc-btn action-btn" style="padding: 10px 0; font-size: 0.9em;" onclick="sendToSettleInput(3)">玩家4</button>
+                <span style="font-weight:bold; font-size:0.9em; color:#333;">直接將當前累計點數傳送到下方玩家：</span>
+                <div id="calcTargetsContainer">
+                    <!-- 👥 這裡會經由 JavaScript 動態填入玩家最新頭像與名稱按鈕 -->
                 </div>
             </div>
         </div>
@@ -387,7 +384,7 @@
             <b id="winPlayerName" style="font-size: 1.25em; color: var(--primary-dark);"></b>
         </div>
         
-        <div style="font-size: 0.9em; font-weight: bold; margin-bottom: 8px; color: #555;">輸入其餘玩家手牌：</div>
+        <div style="font-size: 0.9em; font-weight: bold; margin-bottom: 8px; color: #555;">請輸入其餘玩家手牌 (可手輸或按🧮直接幫此玩家計數)：</div>
         
         <div id="losersInputContainer">
             <!-- 動態注入其餘 3 位玩家手牌輸入與加權狀態 -->
@@ -405,6 +402,45 @@
         <div class="btn-row">
             <button onclick="closeModal('winModal')" style="background: #e0e0e0; color: #333;">取消</button>
             <button class="btn-win" style="color: #000; font-weight: bold;" onclick="submitWin()">確認結算</button>
+        </div>
+    </div>
+</div>
+
+<!-- 🧮 專用：覆蓋型手牌加數計算機彈出框 (完美解決結算時無法使用的痛點) -->
+<div id="calcModal" class="modal-overlay" style="z-index: 1100;">
+    <div class="modal-content" style="max-width: 400px; padding: 20px;">
+        <h3 id="calcModalTitle" style="font-size: 1.25em; margin-bottom: 15px; color: var(--primary-dark);">🧮 幫玩家計算點數</h3>
+        <div class="calc-screen" id="modalCalcDisplay" style="margin-bottom: 5px; background: #e0f2f1; color: #004d40; font-size: 2.3em; font-weight: bold; padding: 10px; border-radius: 8px; text-align: right;">0</div>
+        <!-- 顯示歷史加數过程 -->
+        <div id="modalCalcHistory" style="font-size: 0.9em; color: #777; text-align: right; min-height: 20px; margin-bottom: 15px; padding-right: 5px; word-wrap: break-word;">0</div>
+        
+        <div class="calc-grid">
+            <button class="calc-btn" onclick="pressModalCalcNum(1)">+1</button>
+            <button class="calc-btn" onclick="pressModalCalcNum(2)">+2</button>
+            <button class="calc-btn" onclick="pressModalCalcNum(3)">+3</button>
+            <button class="calc-btn clear-btn" onclick="clearModalCalc()">AC</button>
+            
+            <button class="calc-btn" onclick="pressModalCalcNum(4)">+4</button>
+            <button class="calc-btn" onclick="pressModalCalcNum(5)">+5</button>
+            <button class="calc-btn" onclick="pressModalCalcNum(6)">+6</button>
+            <button class="calc-btn clear-btn" style="background:#ff8a80;" onclick="backspaceModalCalc()">⌫</button>
+            
+            <button class="calc-btn" onclick="pressModalCalcNum(7)">+7</button>
+            <button class="calc-btn" onclick="pressModalCalcNum(8)">+8</button>
+            <button class="calc-btn" onclick="pressModalCalcNum(9)">+9</button>
+            <button class="calc-btn op-btn" onclick="pressModalCalcOp('+10')">+10</button>
+            
+            <button class="calc-btn" onclick="pressModalCalcNum(10)">+10</button>
+            <button class="calc-btn" onclick="pressModalCalcNum(11)">+11</button>
+            <button class="calc-btn" onclick="pressModalCalcNum(12)">+12</button>
+            <button class="calc-btn" style="background: #ffe082;" onclick="pressModalCalcNum(13)">+13</button>
+        </div>
+        
+        <div style="text-align:center; font-size: 0.8em; color:#888; margin-top: 15px;">點擊牌值或 +10/+30 快捷累加，若加錯可點 <b>⌫</b> 退回一步。</div>
+
+        <div class="btn-row" style="margin-top: 15px;">
+            <button onclick="closeModal('calcModal')" style="background: #e0e0e0; color: #333;">取消</button>
+            <button style="background: var(--win); color: white;" onclick="submitModalCalc()">確認並帶入點數</button>
         </div>
     </div>
 </div>
@@ -459,8 +495,13 @@
     // Rummikub 選位顏色池
     const tileColors = ['black', 'red', 'blue', 'orange'];
 
-    // 快捷計算機狀態
+    // 快捷分頁計算機狀態
     let calcSum = 0;
+
+    // 專用覆蓋型計算機狀態
+    let modalCalcSum = 0;
+    let modalCalcHistoryList = [];
+    let activeCalcPlayerId = null;
 
     // ----------------------------
     // Base64 同步輔助
@@ -504,13 +545,14 @@
         
         if(viewName === 'sessions') renderSessions();
         if(viewName === 'history') renderHistory();
+        if(viewName === 'calculator') renderCalculatorTargets(); // 切換到計算機分頁時重新渲染玩家目標
     }
 
     // ----------------------------
     // Firebase 實時對接
     // ----------------------------
     function getRoomRef(roomId) {
-        // 嚴格遵守 RULE 1 路徑規則
+        // 遵守 RULE 1 路徑規則
         return doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
     }
 
@@ -587,7 +629,7 @@
                     localStorage.setItem('rmk_history', JSON.stringify(history)); 
                     localStorage.setItem('rmk_sessions', JSON.stringify(sessions));
                     
-                    renderDashboard(); renderHistory(); renderSessions(); renderSettings();
+                    renderDashboard(); renderHistory(); renderSessions(); renderSettings(); renderCalculatorTargets();
                 } else {
                     syncToCloud();
                 }
@@ -743,6 +785,21 @@
         document.getElementById('set-voice').checked = config.voiceEnabled;
     }
 
+    // 👥 即時渲染計算機分頁中的「傳送目標玩家」按鈕 (完美解決計算機名字不更新問題)
+    function renderCalculatorTargets() {
+        const container = document.getElementById('calcTargetsContainer');
+        if (!container) return;
+        container.innerHTML = `
+            <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 5px;">
+                ${players.map((p, idx) => `
+                    <button class="calc-btn action-btn" style="padding: 10px 0; font-size: 0.9em;" onclick="sendToSettleInput(${idx})">
+                        ${p.emoji}<br>${p.name}
+                    </button>
+                `).join('')}
+            </div>
+        `;
+    }
+
     function exportData() {
         const allData = { players, config, sessions, history };
         const code = utf8ToBase64(JSON.stringify(allData));
@@ -780,7 +837,7 @@
     }
 
     // ----------------------------
-    // Rummikub 翻牌抽座位機制
+    // Rummikub 翻牌座位與起手順序機制
     // ----------------------------
     function startShuffle() {
         shuffledTiles = [];
@@ -815,7 +872,7 @@
         if (pickingIndex < 4) {
             document.getElementById('shuffleStatus').innerHTML = `請 <b>${players[pickingIndex].emoji} ${players[pickingIndex].name}</b> 翻牌`;
         } else { 
-            document.getElementById('shuffleStatus').innerText = `全部翻開！請依大至小選座！`; 
+            document.getElementById('shuffleStatus').innerText = `全部翻開！請依大至小選座及決定當首家！`; 
             setTimeout(() => { 
                 isShuffling = false; 
                 saveData(); 
@@ -873,7 +930,7 @@
         const winner = players.find(x => x.id === pid);
         document.getElementById('winPlayerName').innerText = `${winner.emoji} ${winner.name}`;
         
-        // 渲染其他輸家的輸入控件
+        // 渲染其他輸家的輸入控件 (新增 🧮 計算快捷按鈕)
         const losers = players.filter(x => x.id !== pid);
         const container = document.getElementById('losersInputContainer');
         
@@ -881,7 +938,10 @@
             <div class="settle-row">
                 <div class="settle-row-header">
                     <span class="settle-player-info">${p.emoji} ${p.name}</span>
-                    <input type="number" id="hand-${p.id}" class="settle-input" min="0" value="0" placeholder="手牌" oninput="calculatePreview()">
+                    <div style="display:flex; align-items:center; gap:5px;">
+                        <button type="button" class="btn-quick-tag" style="background: var(--primary); color: white; border: none; padding: 6px 12px; font-weight: bold; border-radius: 6px; display: flex; align-items: center; gap: 4px;" onclick="openCalcForPlayer(${p.id})">🧮 計算</button>
+                        <input type="number" id="hand-${p.id}" class="settle-input" min="0" value="0" placeholder="手牌" oninput="calculatePreview()">
+                    </div>
                 </div>
                 <div class="settle-row-actions">
                     <button type="button" class="btn-quick-tag" id="joker-btn-${p.id}" onclick="toggleJokerTag(${p.id})">🃏 百搭</button>
@@ -916,7 +976,6 @@
 
     // 計算當前在輸入狀態下的所有扣分及回饋
     function calculatePreview() {
-        // 這邊僅供內部預覽或確保數值大於 0
         players.forEach(p => {
             if(p.id !== currentWinnerId) {
                 const el = document.getElementById(`hand-${p.id}`);
@@ -995,7 +1054,79 @@
     }
 
     // ----------------------------
-    // 🧮 內置快捷點數加算器核心邏輯
+    // 🧮 專用覆蓋型計算機核心邏輯 (為結算彈窗中的每位玩家獨立計算)
+    // ----------------------------
+    function openCalcForPlayer(pid) {
+        activeCalcPlayerId = pid;
+        const p = players.find(x => x.id === pid);
+        document.getElementById('calcModalTitle').innerText = `🧮 幫 ${p.emoji} ${p.name} 計算點數`;
+        
+        // 讀取該玩家輸入框中現有的數值當作初始值
+        const currentInputVal = parseInt(document.getElementById(`hand-${pid}`).value) || 0;
+        modalCalcSum = currentInputVal;
+        
+        if (currentInputVal > 0) {
+            modalCalcHistoryList = [currentInputVal];
+        } else {
+            modalCalcHistoryList = [];
+        }
+        
+        updateModalCalcUI();
+        document.getElementById('calcModal').style.display = 'flex';
+    }
+
+    function pressModalCalcNum(val) {
+        modalCalcSum += val;
+        modalCalcHistoryList.push(val);
+        updateModalCalcUI();
+    }
+
+    function pressModalCalcOp(op) {
+        if (op === '+10') {
+            modalCalcSum += 10;
+            modalCalcHistoryList.push(10);
+        } else if (op === '+30') {
+            modalCalcSum += 30;
+            modalCalcHistoryList.push(30);
+        }
+        updateModalCalcUI();
+    }
+
+    function clearModalCalc() {
+        modalCalcSum = 0;
+        modalCalcHistoryList = [];
+        updateModalCalcUI();
+    }
+
+    function backspaceModalCalc() {
+        if (modalCalcHistoryList.length > 0) {
+            const lastVal = modalCalcHistoryList.pop();
+            modalCalcSum -= lastVal;
+            if (modalCalcSum < 0) modalCalcSum = 0;
+        } else {
+            modalCalcSum = 0;
+        }
+        updateModalCalcUI();
+    }
+
+    function updateModalCalcUI() {
+        document.getElementById('modalCalcDisplay').innerText = modalCalcSum;
+        document.getElementById('modalCalcHistory').innerText = modalCalcHistoryList.length > 0 ? modalCalcHistoryList.join(' + ') : '0';
+    }
+
+    function submitModalCalc() {
+        if (activeCalcPlayerId !== null) {
+            const input = document.getElementById(`hand-${activeCalcPlayerId}`);
+            if (input) {
+                input.value = modalCalcSum;
+                calculatePreview(); // 更新主結算視圖數據
+            }
+        }
+        closeModal('calcModal');
+    }
+
+    // ----------------------------
+    // 🧮 分頁快捷點數計算機核心邏輯
     // ----------------------------
     function pressCalcNum(val) {
         calcSum += val;
@@ -1017,10 +1148,10 @@
         // playerIndex 為玩家陣列索引 0-3
         const p = players[playerIndex];
         
-        // 檢查當前有沒有開啟結算面板，若無則幫他打開
+        // 檢查當前有沒有開啟結算面板，若無則提示
         const winModal = document.getElementById('winModal');
         if (winModal.style.display !== 'flex') {
-            alert(`💡 提示：請先在主頁點擊勝出者的「贏咗 👑」按鈕開啟結算面板後，再來這裡點選要把分數傳給哪位輸家！`);
+            alert(`💡 提示：請先在主頁點擊勝出者的「贏咗 👑」按鈕開啟結算面板，再來此頁點按傳送！`);
             return;
         }
 
@@ -1028,9 +1159,9 @@
         if(input) {
             input.value = calcSum;
             calculatePreview();
-            alert(`✅ 已將 ${calcSum} 分傳入至 ${p.emoji} ${p.name} 的手牌點數欄位`);
+            alert(`✅ 已將 ${calcSum} 分傳入至 ${p.emoji} ${p.name} 的手牌點數欄位！`);
             clearCalc();
-            showView('game');
+            showView('game'); // 自動跳轉回計分主頁
         } else {
             alert(`❌ 無法傳入！該玩家可能是勝出者，無須計入剩餘手牌。`);
         }
@@ -1121,6 +1252,7 @@
         config.voiceEnabled = document.getElementById('set-voice').checked;
         saveData(); 
         renderDashboard(); 
+        renderCalculatorTargets(); // 保存玩家名稱時同步更新計算機目標名稱
         showView('game');
     }
     
@@ -1166,6 +1298,7 @@
         history = []; 
         saveData(); 
         renderDashboard(); 
+        renderCalculatorTargets();
         showView('sessions');
     }
 
@@ -1176,6 +1309,7 @@
         // 渲染基礎界面
         renderDashboard();
         renderSettings();
+        renderCalculatorTargets(); // 初始化計算機發送目標玩家按鈕
         
         setTimeout(loadVoices, 500); 
 
@@ -1250,6 +1384,15 @@
     window.adjustSetting = adjustSetting;
     window.saveSettings = saveSettings;
     window.confirmEndSession = confirmEndSession;
+
+    // 專用計算機綁定
+    window.openCalcForPlayer = openCalcForPlayer;
+    window.pressModalCalcNum = pressModalCalcNum;
+    window.pressModalCalcOp = pressModalCalcOp;
+    window.clearModalCalc = clearModalCalc;
+    window.backspaceModalCalc = backspaceModalCalc;
+    window.submitModalCalc = submitModalCalc;
+    window.renderCalculatorTargets = renderCalculatorTargets;
 
     window.onload = init;
 </script>
