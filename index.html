@@ -3,11 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>專業 Rummikub 計分器 V1.1</title>
+    <title>專業 Rummikub 計分器 V1.2</title>
     
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#1a237e">
     <link rel="apple-touch-icon" href="./icon.png">
+
+    <!-- 🔴 引入與跑馬仔完全一致的 Firebase 兼容版 SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
     <style>
         :root {
@@ -455,18 +460,14 @@
     <div onclick="showView('settings')" id="nav-settings">⚙<br>設定</div>
 </nav>
 
-<!-- 🔴 Firebase 11.6.1 ES Module 載入 -->
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-    // 全域配置與初始化
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'hostinger-rummikub-app';
+<script>
+    // 全域變數定義與初始化 (使用兼容版 SDK 全域 scope 宣告)
     let firebaseConfig = null;
-    let app, auth, db, user;
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'hostinger-rummikub-app';
+    let auth, db, user;
     let unsubscribeSnapshot = null;
     let currentRoomId = localStorage.getItem('rmk_room_id') || '';
+    let firebaseSupported = (typeof firebase !== 'undefined');
     
     // 看板模式與設定初始化
     let scoreMode = localStorage.getItem('rmk_score_mode') === 'true';
@@ -549,19 +550,18 @@
     }
 
     // ----------------------------
-    // Firebase 實時對接
+    // Firebase 實時對接 (完全兼容跑馬仔 V9.3 路徑規則)
     // ----------------------------
     function getRoomRef(roomId) {
-        // 遵守 RULE 1 路徑規則
-        return doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+        // 遵守 RULE 1 路徑隔離
+        return db.doc('artifacts/' + appId + '/public/data/rooms/' + roomId);
     }
 
     async function syncToCloud() {
         if (!user || !db || !currentRoomId) return;
         try {
-            const roomDocRef = getRoomRef(currentRoomId);
             const data = { players, config, history, sessions, lastUpdated: Date.now() };
-            await setDoc(roomDocRef, data);
+            await getRoomRef(currentRoomId).set(data);
         } catch (e) { 
             console.error("Firestore 同步失敗:", e);
         }
@@ -584,13 +584,13 @@
     }
 
     async function createRoom() {
-        if (!db) return alert("Firebase 尚未成功連線，無法開房！");
+        if (!db) return alert("Firebase 尚未成功連線！請先放置正確的 firebase-config.json 於此目錄下。");
         const newId = Math.floor(10000 + Math.random() * 90000).toString();
         joinFirebaseRoom(newId);
     }
 
     async function joinRoomBtn() {
-        if (!db) return alert("Firebase 尚未成功連線！");
+        if (!db) return alert("Firebase 尚未成功連線！請確認設定。");
         const input = document.getElementById('roomIdInput').value.trim();
         if(input.length !== 5) return alert("請輸入正確的 5 位數字房號！");
         joinFirebaseRoom(input);
@@ -613,9 +613,8 @@
         if(unsubscribeSnapshot) unsubscribeSnapshot();
         
         try {
-            const docRef = getRoomRef(roomId);
-            unsubscribeSnapshot = onSnapshot(docRef, (docSnap) => {
-                if(docSnap.exists()) {
+            unsubscribeSnapshot = getRoomRef(roomId).onSnapshot((docSnap) => {
+                if(docSnap.exists) {
                     const data = docSnap.data();
                     const oldVoice = config.voiceEnabled; 
                     players = data.players || players;
@@ -635,7 +634,7 @@
                 }
             }, (err) => {
                 console.error("實時訂閱失敗:", err);
-                alert("即時房同步連線失敗，請檢查網路！" + err.message);
+                alert("即時房同步連線失敗，請檢查網路及 rules 設定！" + err.message);
             });
             document.getElementById('roomIdInput').value = '';
         } catch(e) {
@@ -734,7 +733,6 @@
             </div>`;
         };
         
-        // 按照 4 人十字座次排列（1-上、2-左、3-右、4-下）
         const getPByWind = (windStr) => players.find(p => p.wind === windStr);
         
         grid.innerHTML = `
@@ -785,7 +783,7 @@
         document.getElementById('set-voice').checked = config.voiceEnabled;
     }
 
-    // 👥 即時渲染計算機分頁中的「傳送目標玩家」按鈕 (完美解決計算機名字不更新問題)
+    // 👥 即時同步渲染計算機發送目標玩家按鈕 (完美解決計算機名單不更新問題)
     function renderCalculatorTargets() {
         const container = document.getElementById('calcTargetsContainer');
         if (!container) return;
@@ -842,7 +840,7 @@
     function startShuffle() {
         shuffledTiles = [];
         for (let i = 0; i < 4; i++) {
-            const num = Math.floor(Math.random() * 13) + 1; // 1 to 13
+            const num = Math.floor(Math.random() * 13) + 1; 
             const color = tileColors[Math.floor(Math.random() * tileColors.length)];
             shuffledTiles.push({ num, color });
         }
@@ -865,7 +863,6 @@
         tile.innerHTML = `<span class="rummi-tile-num rummi-tile-color-${picked.color}">${picked.num}</span>`;
         tile.classList.add('revealed');
         
-        // 更改該玩家順序位置
         players[pickingIndex].wind = `${pickingIndex + 1}號位`; 
         pickingIndex++;
         
@@ -955,7 +952,6 @@
         document.getElementById('winModal').style.display = 'flex';
     }
 
-    // 快捷標籤開關與即時更新預覽
     function toggleJokerTag(pid) {
         const btn = document.getElementById(`joker-btn-${pid}`);
         btn.classList.toggle('active');
@@ -974,7 +970,6 @@
         calculatePreview();
     }
 
-    // 計算當前在輸入狀態下的所有扣分及回饋
     function calculatePreview() {
         players.forEach(p => {
             if(p.id !== currentWinnerId) {
@@ -994,7 +989,6 @@
         let winSum = 0;
         let descList = [];
         
-        // 獲取當前計分規則
         const jokerPenalty = config.jokerPenalty || 30;
         const noMeldRule = config.noMeldRule || 'none';
         
@@ -1010,14 +1004,12 @@
             let finalPenalty = rawInput;
             let detailDesc = `${rawInput}點`;
             
-            // 1. 先加上百搭罰分
             if (hasJoker) {
                 finalPenalty += jokerPenalty;
                 detailDesc += ` + 百搭罰${jokerPenalty}`;
                 statUpdates.push({ id: p.id, type: 'jokers', val: 1 });
             }
             
-            // 2. 判斷未起冰處理
             if (hasNoMeld) {
                 statUpdates.push({ id: p.id, type: 'nomeld', val: 1 });
                 if (noMeldRule === 'double') {
@@ -1031,7 +1023,6 @@
                 }
             }
             
-            // Rummikub 罰分為負
             change[p.id] = -finalPenalty;
             winSum += finalPenalty;
             
@@ -1041,7 +1032,6 @@
         change[winner.id] = winSum;
         statUpdates.push({ id: winner.id, type: 'win', val: 1 });
         
-        // 登記所有人參與了一次
         players.forEach(p => {
             statUpdates.push({ id: p.id, type: 'games', val: 1 });
         });
@@ -1061,7 +1051,6 @@
         const p = players.find(x => x.id === pid);
         document.getElementById('calcModalTitle').innerText = `🧮 幫 ${p.emoji} ${p.name} 計算點數`;
         
-        // 讀取該玩家輸入框中現有的數值當作初始值
         const currentInputVal = parseInt(document.getElementById(`hand-${pid}`).value) || 0;
         modalCalcSum = currentInputVal;
         
@@ -1119,7 +1108,7 @@
             const input = document.getElementById(`hand-${activeCalcPlayerId}`);
             if (input) {
                 input.value = modalCalcSum;
-                calculatePreview(); // 更新主結算視圖數據
+                calculatePreview(); 
             }
         }
         closeModal('calcModal');
@@ -1145,10 +1134,8 @@
     }
 
     function sendToSettleInput(playerIndex) {
-        // playerIndex 為玩家陣列索引 0-3
         const p = players[playerIndex];
         
-        // 檢查當前有沒有開啟結算面板，若無則提示
         const winModal = document.getElementById('winModal');
         if (winModal.style.display !== 'flex') {
             alert(`💡 提示：請先在主頁點擊勝出者的「贏咗 👑」按鈕開啟結算面板，再來此頁點按傳送！`);
@@ -1161,7 +1148,7 @@
             calculatePreview();
             alert(`✅ 已將 ${calcSum} 分傳入至 ${p.emoji} ${p.name} 的手牌點數欄位！`);
             clearCalc();
-            showView('game'); // 自動跳轉回計分主頁
+            showView('game'); 
         } else {
             alert(`❌ 無法傳入！該玩家可能是勝出者，無須計入剩餘手牌。`);
         }
@@ -1252,7 +1239,7 @@
         config.voiceEnabled = document.getElementById('set-voice').checked;
         saveData(); 
         renderDashboard(); 
-        renderCalculatorTargets(); // 保存玩家名稱時同步更新計算機目標名稱
+        renderCalculatorTargets(); 
         showView('game');
     }
     
@@ -1270,7 +1257,6 @@
             return kings.map(k => `${k.emoji}${k.name}`).join(', ') + ` (${max}次)`; 
         };
         
-        // 算出大贏家 (最高分)
         let maxScore = -99999;
         let bigWinners = [];
         players.forEach(p => {
@@ -1303,96 +1289,71 @@
     }
 
     // ----------------------------
-    // 網頁掛載與初始化
+    // 網頁掛載與初始化 (採用與 9.3 版完全相同的兼容讀取與 anonymous 登錄流程)
     // ----------------------------
     async function init() {
-        // 渲染基礎界面
         renderDashboard();
         renderSettings();
-        renderCalculatorTargets(); // 初始化計算機發送目標玩家按鈕
+        renderCalculatorTargets(); 
         
         setTimeout(loadVoices, 500); 
 
-        // 讀取 Canvas 環境中的 Firebase 配置
+        // 1. 優先嘗試讀取 Canvas 預覽環境變數
         if (typeof __firebase_config !== 'undefined') {
             try {
                 firebaseConfig = JSON.parse(__firebase_config);
             } catch(e) {
-                console.warn("無法解析全局 Firebase 配置", e);
+                console.warn("無法解析 Canvas Firebase 環境配置", e);
+            }
+        } else {
+            // 2. 否則嘗試從伺服器讀取本地設定檔 (解決 Hostinger 報錯的關鍵)
+            try {
+                const response = await fetch('./firebase-config.json');
+                if (response.ok) {
+                    firebaseConfig = await response.json();
+                    console.log("成功載入外部 Firebase 設定！");
+                }
+            } catch(e) {
+                console.log("未檢測到外部 firebase-config.json，將使用預設單機模式。");
             }
         }
 
-        // 🟢 如果有提供完整的 Firebase 配置，則啟用網路對戰房即時同步功能
-        if (firebaseConfig && firebaseConfig.projectId && firebaseConfig.apiKey) {
+        // 3. 🟢 檢查 Firebase SDK 是否載入完成並進行連線
+        if (firebaseSupported && firebaseConfig && firebaseConfig.projectId && firebaseConfig.apiKey) {
             try {
-                app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
+                firebase.initializeApp(firebaseConfig);
+                auth = firebase.auth();
+                db = firebase.firestore();
 
-                // RULE 3: 先執行匿名登入，完成後才嘗試讀取/建立房間
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-
-                onAuthStateChanged(auth, (u) => {
-                    user = u;
-                    if (user && currentRoomId) {
-                        joinFirebaseRoom(currentRoomId);
+                // 優先使用自訂 Token 登入或安全匿名登入 (RULE 3)
+                const initAuth = async () => {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await auth.signInWithCustomToken(__initial_auth_token);
+                    } else {
+                        await auth.signInAnonymously();
                     }
+                };
+
+                initAuth().then(() => {
+                    auth.onAuthStateChanged((u) => {
+                        user = u;
+                        if (user && currentRoomId) {
+                            joinFirebaseRoom(currentRoomId);
+                        }
+                    });
+                }).catch(err => {
+                    console.error("Firebase 登入失敗:", err);
+                    alert("Firebase 登入失敗！請確保已在 Firebase Console 中開啟「Anonymous (匿名)」登入。\n詳細錯誤: " + err.message);
                 });
             } catch(e) {
-                console.error("Firebase 連線初始化失敗:", e);
+                console.error("Firebase 初始化失敗:", e);
             }
         } else {
-            console.log("正在使用本機 Offline 單機模式運作 (未配置 Firebase 參數)");
+            console.log("正在使用單機模式運作 (未配置連線參數)");
         }
         
         updateRoomUI();
     }
-
-    // 將需要從 HTML 行內 onclick 呼叫的函數綁定至 window
-    window.showView = showView;
-    window.createRoom = createRoom;
-    window.joinRoomBtn = joinRoomBtn;
-    window.leaveRoom = leaveRoom;
-    window.toggleScoreMode = toggleScoreMode;
-    window.exportData = exportData;
-    window.importData = importData;
-    window.startShuffle = startShuffle;
-    window.pickTile = pickTile;
-    window.openZhuiModal = openZhuiModal;
-    window.adjustAdjustVal = adjustAdjustVal;
-    window.closeModal = closeModal;
-    window.submitZhui = submitZhui;
-    window.openWinModal = openWinModal;
-    window.toggleJokerTag = toggleJokerTag;
-    window.toggleMeldTag = toggleMeldTag;
-    window.setQuickScore = setQuickScore;
-    window.calculatePreview = calculatePreview;
-    window.submitWin = submitWin;
-    window.pressCalcNum = pressCalcNum;
-    window.pressCalcOp = pressCalcOp;
-    window.clearCalc = clearCalc;
-    window.sendToSettleInput = sendToSettleInput;
-    window.undo = undo;
-    window.resetScores = resetScores;
-    window.clearSessions = clearSessions;
-    window.openEmojiModal = openEmojiModal;
-    window.selectEmoji = selectEmoji;
-    window.adjustSetting = adjustSetting;
-    window.saveSettings = saveSettings;
-    window.confirmEndSession = confirmEndSession;
-
-    // 專用計算機綁定
-    window.openCalcForPlayer = openCalcForPlayer;
-    window.pressModalCalcNum = pressModalCalcNum;
-    window.pressModalCalcOp = pressModalCalcOp;
-    window.clearModalCalc = clearModalCalc;
-    window.backspaceModalCalc = backspaceModalCalc;
-    window.submitModalCalc = submitModalCalc;
-    window.renderCalculatorTargets = renderCalculatorTargets;
 
     window.onload = init;
 </script>
