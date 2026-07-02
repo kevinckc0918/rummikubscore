@@ -1,7 +1,7 @@
 {
-  "name": "跑馬仔計分板",
-  "short_name": "跑馬仔",
-  "description": "麻雀跑馬仔計分專用 App",
+  "name": "Rummikub 計分板",
+  "short_name": "Rummikub 計分",
+  "description": "Rummikub 計分專用 App",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#2E7D32",
