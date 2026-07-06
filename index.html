@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>專業 Rummikub 計分器 V1.4</title>
+    <title>專業 Rummikub 計分器 V1.5</title>
     
     <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#1a237e">
-    <link rel="apple-touch-icon" href="./icon.png">
+    <link class="apple-touch-icon" href="./icon.png">
 
     <!-- 🔴 引入與跑馬仔完全一致的 Firebase 兼容版 SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
@@ -37,7 +37,7 @@
             user-select: none;
         }
 
-        /* 🟢 頂欄完全自適應 Grid 修復，100% 解決文字重疊 */
+        /* 🟢 頂欄完全自適應 Grid，防止窄螢幕文字重疊 */
         header {
             background-color: var(--primary-dark);
             color: white;
@@ -89,7 +89,7 @@
         .btn-zhui-header { background: #ffe0b2; color: #000; }
         .btn-end-header { background: #e53935; color: white; }
 
-        /* 針對窄版手機進行自動微縮 */
+        /* 窄版手機自動微縮 */
         @media (max-width: 365px) {
             .header-content {
                 padding: 0 6px;
@@ -112,7 +112,7 @@
         .view { display: none; }
         .view.active { display: block; }
 
-        /* 縮減行距與卡片邊距 */
+        /* 縮減卡片邊距，適配手機高度 */
         .cross-layout { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 10px; margin-top: 5px; }
         .cross-row { display: flex; justify-content: center; gap: 8px; width: 100%; }
         .card-wrapper { width: 49%; max-width: 240px; }
@@ -145,7 +145,7 @@
         .btn-kong { background: #e3f2fd; color: var(--primary); border: 2px solid var(--primary); }
         .btn-win { background: var(--accent); color: #000; border: 2px solid #fbc02d; }
         
-        /* 網上連線「純分數看板」專用極限放大 CSS */
+        /* 純分數看板專用極限放大 CSS */
         .score-mode-active .main-actions { display: none !important; }
         .score-mode-active .player-card { padding: 30px 10px; min-height: 180px; }
         .score-mode-active .player-name { font-size: 1.6em; color: #111; }
@@ -264,7 +264,6 @@
 
 <header>
     <div class="header-content">
-        <!-- 😰 按鈕文字優化：將「😰 罰分/微調」精簡為「😰 罰分」，預留極多水平寬度 -->
         <button class="btn-header btn-zhui-header" onclick="openZhuiModal()">😰 罰分</button>
         <div class="header-title">
             Rummikub 計分
@@ -359,14 +358,6 @@
             </div>
             <div id="roomStatusText" style="margin-top: 10px; text-align: center; color: #666; font-size: 0.9em; font-weight:bold;">單機模式 (未連線)</div>
             <button id="leaveRoomBtn" onclick="leaveRoom()" style="display:none; width:100%; margin-top:10px; background: #e0e0e0; color: #333; border:none; padding:10px; border-radius:8px; cursor: pointer; font-weight:bold;">🚪 離開房間 (轉回單機)</button>
-        </div>
-
-        <!-- 🔑 手動粘貼 Firebase 設定 (防呆備用連線) -->
-        <div class="online-zone" style="background: #efebe9; border-color: #d7ccc8;">
-            <h4 style="color: #4e342e; margin-top:0; margin-bottom:5px; font-size: 1.1em;">🌐 備用方案：手動粘貼金鑰連線</h4>
-            <p style="font-size:0.8em; color:#5d4037; margin-top:0;">若伺服器環境變數載入失敗，可將您的 Firebase Config JSON 直接粘貼在下方：</p>
-            <textarea id="manualFirebaseInput" style="height: 70px; font-size: 11px;" placeholder='格式如: {"apiKey": "...", "projectId": "...", ...}'></textarea>
-            <button onclick="saveManualFirebaseConfig()" style="width:100%; margin-top:5px; background: #5d4037; color: white; border:none; padding:10px; border-radius:8px; font-weight:bold; cursor: pointer; font-size: 0.95em;">💾 儲存並強制啟用連線</button>
         </div>
 
         <h3>👤 玩家設定</h3>
@@ -514,7 +505,7 @@
 </nav>
 
 <script>
-    // 全域變數定義與初始化 (使用兼容版 SDK 全域 scope 宣告)
+    // 全域變數定義與初始化 (使用與跑馬仔兼容之 SDK 全域宣告)
     let firebaseConfig = null;
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'hostinger-rummikub-app';
     let auth, db, user;
@@ -525,7 +516,7 @@
     // 看板模式與設定初始化
     let scoreMode = localStorage.getItem('rmk_score_mode') === 'true';
 
-    const emojiList = ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🐒','🦍','🦧','🐔','🐧','🐦','🐤','🦆',' eagles','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🐛','🦋','🐌','🐞','🐜','🦟','🦗','🐢','🐍','🦎','🦖','🦕','🐙','🦑','蝦','蟹','🐠','🐳','🐊','🦓','🐘','🦒','🐕','🐈','🐇'];
+    const emojiList = ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🐒','🦍','🦧','🐔','🐧','🐦','🐤','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🐛','🦋','🐌','🐞','🐜','🦟','🦗','🐢','🐍','🦎','🦖','🦕','🐙','🦑','蝦','蟹','🐠','🐳','🐊','🦓','🐘','🦒','🐕','🐈','🐇'];
 
     let players = JSON.parse(localStorage.getItem('rmk_players')) || [
         { id: 0, name: "玩家 1", score: 0, wind: "1號位", emoji: "🐶", stats: { win: 0, jokers: 0, nomeld: 0, games: 0 } },
@@ -603,7 +594,7 @@
     }
 
     // ----------------------------
-    // Firebase 實時對接 (完全兼容跑馬仔 V9.3 路徑規則)
+    // Firebase 實時對接 (完全兼容跑馬仔 V9.3 路徑隔離)
     // ----------------------------
     function getRoomRef(roomId) {
         return db.doc('artifacts/' + appId + '/public/data/rooms/' + roomId);
@@ -636,13 +627,13 @@
     }
 
     async function createRoom() {
-        if (!db) return alert("Firebase 尚未成功連線！請確保手動金鑰已貼入，或 Coolify 中已放置設定檔。");
+        if (!db) return alert("Firebase 尚未成功連線！請確保 Coolify 中已正確綁定變數並編譯生成設定檔。");
         const newId = Math.floor(10000 + Math.random() * 90000).toString();
         joinFirebaseRoom(newId);
     }
 
     async function joinRoomBtn() {
-        if (!db) return alert("Firebase 尚未成功連線！");
+        if (!db) return alert("Firebase 尚未成功連線！請確認設定。");
         const input = document.getElementById('roomIdInput').value.trim();
         if(input.length !== 5) return alert("請輸入正確的 5 位數字房號！");
         joinFirebaseRoom(input);
@@ -833,9 +824,6 @@
         
         document.getElementById('set-noMeldRule').value = config.noMeldRule || 'none';
         document.getElementById('set-voice').checked = config.voiceEnabled;
-
-        const manualSaved = localStorage.getItem('rmk_manual_firebase_config') || '';
-        document.getElementById('manualFirebaseInput').value = manualSaved;
     }
 
     // 👥 即時同步渲染計算機發送目標玩家按鈕
@@ -1012,7 +1000,6 @@
         calculatePreview();
     }
 
-    // 同步勾選狀態
     function toggleMeldTag(pid) {
         const btn = document.getElementById(`meld-btn-${pid}`);
         btn.classList.toggle('active');
@@ -1125,6 +1112,7 @@
         updateModalCalcUI();
     }
 
+    // 操作覆蓋型計算機
     function pressModalCalcOp(op) {
         if (op === '+10') {
             modalCalcSum += 10;
@@ -1284,25 +1272,6 @@
         i.value=v; d.innerText=v; 
     }
 
-    function saveManualFirebaseConfig() {
-        const inputVal = document.getElementById('manualFirebaseInput').value.trim();
-        if(!inputVal) {
-            localStorage.removeItem('rmk_manual_firebase_config');
-            alert("🧹 已清除手動金鑰，系統將嘗試使用環境變數或預設設定。請重啟頁面。");
-            location.reload();
-            return;
-        }
-
-        try {
-            JSON.parse(inputVal);
-            localStorage.setItem('rmk_manual_firebase_config', inputVal);
-            alert("🎉 金鑰保存成功！系統將自動嘗試以此設定連線。網頁將立即重啟...");
-            location.reload();
-        } catch(e) {
-            alert("❌ 金鑰格式錯誤！請確保您貼上的是完整的 JSON 格式字串。例如:\n{\n  \"apiKey\": \"...\",\n  \"projectId\": \"...\"\n}");
-        }
-    }
-
     function saveSettings() {
         players.forEach(p => { 
             p.name = document.getElementById(`name-${p.id}`).value; 
@@ -1372,17 +1341,8 @@
         
         setTimeout(loadVoices, 500); 
 
-        const manualConfigString = localStorage.getItem('rmk_manual_firebase_config');
-        if (manualConfigString) {
-            try {
-                firebaseConfig = JSON.parse(manualConfigString);
-                console.log("🟢 成功加載手動貼入的金鑰！");
-            } catch(e) {
-                console.error("手動金鑰解析出錯:", e);
-            }
-        }
-
-        if (!firebaseConfig && typeof __firebase_config !== 'undefined') {
+        // 1. 優先嘗試讀取預設系統/Canvas預覽環境變數
+        if (typeof __firebase_config !== 'undefined') {
             try {
                 firebaseConfig = JSON.parse(__firebase_config);
             } catch(e) {
@@ -1390,6 +1350,7 @@
             }
         }
 
+        // 2. 其次嘗試拉取本地檔案 (對應 Coolify 的 build.sh 生成機制)
         if (!firebaseConfig) {
             try {
                 const response = await fetch('./firebase-config.json');
@@ -1398,16 +1359,18 @@
                     console.log("🟢 成功加載 firebase-config.json 設定檔！");
                 }
             } catch(e) {
-                console.log("未檢測到外部檔案，將等待手動輸入或繼續以單機模式運行。");
+                console.log("未檢測到外部檔案，將以單機模式運行。");
             }
         }
 
+        // 3. 🟢 連線至 Firebase
         if (firebaseSupported && firebaseConfig && firebaseConfig.projectId && firebaseConfig.apiKey) {
             try {
                 firebase.initializeApp(firebaseConfig);
                 auth = firebase.auth();
                 db = firebase.firestore();
 
+                // 完美遵守 RULE 3：先登錄後監聽
                 const initAuth = async () => {
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         await auth.signInWithCustomToken(__initial_auth_token);
@@ -1437,6 +1400,7 @@
         updateRoomUI();
     }
 
+    // 將行內 onclick 呼叫的函數綁定至 window
     window.showView = showView;
     window.createRoom = createRoom;
     window.joinRoomBtn = joinRoomBtn;
@@ -1469,6 +1433,7 @@
     window.saveSettings = saveSettings;
     window.confirmEndSession = confirmEndSession;
 
+    // 專用計算機綁定
     window.openCalcForPlayer = openCalcForPlayer;
     window.pressModalCalcNum = pressModalCalcNum;
     window.pressModalCalcOp = pressModalCalcOp;
@@ -1476,7 +1441,6 @@
     window.backspaceModalCalc = backspaceModalCalc;
     window.submitModalCalc = submitModalCalc;
     window.renderCalculatorTargets = renderCalculatorTargets;
-    window.saveManualFirebaseConfig = saveManualFirebaseConfig;
 
     window.onload = init;
 </script>
